@@ -38,7 +38,7 @@ User speaks → [Deepgram STT] → text → [LLM] → response text → [Murf Fa
 ### Step 1: Clone the repo
 
 ```bash
-git clone https://github.com/murf-ai/murf-livekit-starter.git
+git clone https://github.com/sanchitasunil/murf-livekit-starter.git
 cd murf-livekit-starter
 ```
 
@@ -123,7 +123,7 @@ The backend runs as a long-lived Python process that connects to LiveKit as an a
 
 ### Frontend (Next.js) — Deploy to Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/murf-ai/murf-livekit-starter&root-directory=frontend&env=LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET&project-name=murf-voice-agent&repository-name=murf-voice-agent)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/sanchitasunil/murf-livekit-starter&root-directory=frontend&env=LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET&project-name=murf-voice-agent&repository-name=murf-voice-agent)
 
 Set these environment variables in Vercel:
 
