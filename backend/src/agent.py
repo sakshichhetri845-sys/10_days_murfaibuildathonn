@@ -20,15 +20,14 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
+# Change this prompt to change what your voice agent does.
+# See README.md for example prompts (customer support, language tutor, receptionist).
+SYSTEM_PROMPT = """You are a friendly and efficient customer support agent for a tech company. Help users with account issues, billing questions, and product troubleshooting. Be concise, empathetic, and solution-oriented. If you don't know something, say so honestly and offer to escalate. Your responses are concise and without complex formatting, emojis, or symbols."""
+
 
 class Assistant(Agent):
     def __init__(self) -> None:
-        super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
-        )
+        super().__init__(instructions=SYSTEM_PROMPT)
 
     # To add tools, use the @function_tool decorator.
     # Here's an example that adds a simple weather tool.

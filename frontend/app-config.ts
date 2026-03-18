@@ -33,9 +33,9 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'LiveKit',
-  pageTitle: 'LiveKit Voice Agent',
-  pageDescription: 'A voice agent built with LiveKit',
+  companyName: 'Murf AI',
+  pageTitle: 'Voice Agent Starter',
+  pageDescription: 'A voice agent powered by Murf Falcon — the fastest TTS API',
 
   supportsChatInput: true,
   supportsVideoInput: true,
@@ -43,10 +43,10 @@ export const APP_CONFIG_DEFAULTS: AppConfig = {
   isPreConnectBufferEnabled: true,
 
   logo: '/lk-logo.svg',
-  accent: '#002cf2',
+  accent: '#6366F1',
   logoDark: '/lk-logo-dark.svg',
-  accentDark: '#1fd5f9',
-  startButtonText: 'Start call',
+  accentDark: '#818cf8',
+  startButtonText: 'Start talking',
 
   // optional: audio visualization configuration
   // audioVisualizerType: 'bar',
