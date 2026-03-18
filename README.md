@@ -106,7 +106,7 @@ Want to deploy this beyond localhost? You'll need to deploy **two services**: th
 
 ### Backend (Python agent) — Deploy to Railway
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/xxxxx)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/tIVCF1?referralCode=cNjn2P&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
 *Replace the link above with your Railway template URL once created.*
 
@@ -123,7 +123,7 @@ The backend runs as a long-lived Python process that connects to LiveKit as an a
 
 ### Frontend (Next.js) — Deploy to Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/murf-ai/murf-livekit-starter&env=LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET&project-name=murf-voice-agent&repository-name=murf-voice-agent)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/murf-ai/murf-livekit-starter&root-directory=frontend&env=LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET&project-name=murf-voice-agent&repository-name=murf-voice-agent)
 
 Set these environment variables in Vercel:
 
