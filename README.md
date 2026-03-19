@@ -30,9 +30,19 @@ User speaks → [Deepgram STT] → text → [LLM] → response text → [Murf Fa
 
 ### Prerequisites
 
-- **Python** 3.10+ (with [uv](https://docs.astral.sh/uv/) recommended)
+- **Python** 3.10+
+- **[uv](https://docs.astral.sh/uv/)** — fast Python package manager
+  ```bash
+  # macOS/Linux
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  # Windows (PowerShell)
+  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+  ```
 - **Node.js** 18+
-- **pnpm** (or npm) for the frontend
+- **pnpm** — fast Node package manager
+  ```bash
+  npm install -g pnpm
+  ```
 - A [LiveKit](https://cloud.livekit.io/) project (free tier available)
 
 ### Step 1: Clone the repo
