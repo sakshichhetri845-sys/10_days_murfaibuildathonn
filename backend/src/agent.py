@@ -1,6 +1,7 @@
 import logging
 import os
 
+import httpx
 from dotenv import load_dotenv
 from livekit import rtc
 # pyrefly: ignore [missing-import]
@@ -31,6 +32,28 @@ SYSTEM_PROMPT = """You are BolBuddy, a warm, supportive, and judgment-free AI sp
 Your goal is to be a friendly conversational buddy—not a strict teacher. Encourage users to express themselves comfortably, ask open-ended questions about their day, hobbies, or interests, and keep conversations light, engaging, and positive.
 
 If the user makes a mistake, gently model natural English phrasing in your response without interrupting their flow or being critical. Keep your responses concise, friendly, and natural for voice conversation without any complex formatting, emojis, or symbols."""
+
+
+async def _check_groq_available() -> bool:
+    """Quick health check: can we reach the Groq API from this network?"""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {os.getenv('GROQ_API_KEY', '')}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "max_tokens": 1,
+                },
+            )
+            return resp.status_code == 200
+    except Exception as e:
+        logger.warning(f"Groq health check failed: {e}")
+        return False
 
 
 class Assistant(Agent):
@@ -73,18 +96,26 @@ async def my_agent(ctx: JobContext):
         "room": ctx.room.name,
     }
 
-    # Set up a voice AI pipeline using Murf Falcon, Gemini, Deepgram, and the LiveKit turn detector
+    # Try Groq first, fall back to Google Gemini if Groq is unreachable
+    if await _check_groq_available():
+        logger.info("✅ Groq API is reachable — using Groq LLM (llama-3.3-70b-versatile)")
+        llm = openai.LLM(
+            base_url="https://api.groq.com/openai/v1",
+            api_key=os.getenv("GROQ_API_KEY") or "",
+            model="llama-3.3-70b-versatile",
+        )
+    else:
+        logger.info("⚠️ Groq API unreachable — falling back to Google Gemini 2.0 Flash")
+        llm = google.LLM(model="gemini-2.0-flash")
+
+    # Set up a voice AI pipeline
     session = AgentSession(
         # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
         # See all available models at https://docs.livekit.io/agents/models/stt/
         stt=deepgram.STT(model="nova-3"),
         # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
         # See all available models at https://docs.livekit.io/agents/models/llm/
-        llm=openai.LLM(
-            base_url="https://api.groq.com/openai/v1",
-            api_key=os.getenv("GROQ_API_KEY") or "",
-            model="llama-3.3-70b-versatile",
-        ),
+        llm=llm,
         # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
         # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
         tts=murf.TTS(
