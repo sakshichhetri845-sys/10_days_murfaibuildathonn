@@ -1,0 +1,139 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@source "../node_modules/streamdown/dist/index.js";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.75rem;
+  --background: #FAFAF8;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+  --primary: #4F46E5;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F1F5F9;
+  --secondary-foreground: #1E293B;
+  --muted: #F8FAFC;
+  --muted-foreground: #64748B;
+  --accent: #7C3AED;
+  --accent-foreground: #FFFFFF;
+  --destructive: #EF4444;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #4F46E5;
+}
+
+.dark {
+  --background: #090D16;
+  --foreground: #F8FAFC;
+  --card: #111827;
+  --card-foreground: #F8FAFC;
+  --popover: #111827;
+  --popover-foreground: #F8FAFC;
+  --primary: #6366F1;
+  --primary-foreground: #FFFFFF;
+  --secondary: #1F2937;
+  --secondary-foreground: #F8FAFC;
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
+  --accent: #8B5CF6;
+  --accent-foreground: #FFFFFF;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #6366F1;
+}
+
+@theme inline {
+  --font-sans:
+    'Inter', var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    var(--font-commit-mono), ui-monospace, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+}
+
+/* Custom Orb Animation & Glow Styles */
+@keyframes orbPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 40px rgba(79, 70, 229, 0.25), 0 0 80px rgba(124, 58, 237, 0.15);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 60px rgba(79, 70, 229, 0.4), 0 0 100px rgba(124, 58, 237, 0.3);
+  }
+}
+
+@keyframes orbListen {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 50px rgba(124, 58, 237, 0.4), 0 0 90px rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 80px rgba(124, 58, 237, 0.6), 0 0 120px rgba(16, 185, 129, 0.4);
+  }
+}
+
+@keyframes orbThink {
+  0% {
+    transform: rotate(0deg) scale(1);
+    box-shadow: 0 0 40px rgba(79, 70, 229, 0.5);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.03);
+    box-shadow: 0 0 70px rgba(124, 58, 237, 0.6);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+    box-shadow: 0 0 40px rgba(79, 70, 229, 0.5);
+  }
+}
+
+@keyframes orbSpeak {
+  0%, 100% {
+    transform: scale(1.02);
+    box-shadow: 0 0 60px rgba(79, 70, 229, 0.5), 0 0 110px rgba(124, 58, 237, 0.4);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 90px rgba(79, 70, 229, 0.7), 0 0 140px rgba(124, 58, 237, 0.6);
+  }
+}
+
+.orb-idle {
+  animation: orbPulse 4s ease-in-out infinite;
+}
+
+.orb-listening {
+  animation: orbListen 2.5s ease-in-out infinite;
+}
+
+.orb-thinking {
+  animation: orbThink 3s linear infinite;
+}
+
+.orb-speaking {
+  animation: orbSpeak 2s ease-in-out infinite;
+}

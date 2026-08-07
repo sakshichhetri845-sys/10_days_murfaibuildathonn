@@ -4,6 +4,7 @@ import os
 import httpx
 from dotenv import load_dotenv
 from livekit import rtc
+
 # pyrefly: ignore [missing-import]
 from livekit.agents import (
     Agent,
@@ -12,12 +13,13 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     cli,
-    inference,
-    tokenize,
     room_io,
+    tokenize,
 )
+
 # pyrefly: ignore [missing-import]
-from livekit.plugins import murf, silero, google, deepgram, noise_cancellation, openai
+from livekit.plugins import deepgram, google, murf, noise_cancellation, openai, silero
+
 # pyrefly: ignore [missing-import]
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
@@ -25,29 +27,11 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-# Change this prompt to change what your voice agent does.
-# See README.md for example prompts (customer support, language tutor, receptionist).
-SYSTEM_PROMPT = """You are a warm, empathetic, and knowledgeable AI Health Assistant. Your goal is to discuss health topics, diseases, and common symptoms in a friendly, accessible, and supportive voice conversation.
-
-Tone & Personality:
-- Friendly, caring, positive, and encouraging.
-- Speak in natural, conversational spoken English.
-- Keep responses concise, clear, and easy to hear—avoid bullet lists, markdown formatting, emojis, or special symbols.
-
-Core Duties:
-- Listen attentively when users talk about how they are feeling or ask about diseases and symptoms.
-- Provide general, easy-to-understand educational information about diseases, common symptoms, prevention, and general wellness.
-- Ask gentle, one-at-a-time clarifying questions to understand context better.
-
-Medical Safety:
-- Gently remind users that you are an AI health assistant and not a medical doctor.
-- Do not provide definitive medical diagnoses or prescribe medications.
-- For emergency or severe symptoms (such as chest pain, severe breathlessness, sudden numbness/weakness, or severe bleeding), immediately advise seeking urgent medical care or emergency services.
-
-Sample Interaction Style:
-- Warm greeting: "Hi! It's great to hear from you. How are you feeling today?"
-- Supportive listening: Acknowledge what they share with warmth and care.
-- Friendly farewell: "Take care! Wishing you good health." """
+# System prompt is modularized in src/prompts/system_prompt.py
+try:
+    from src.prompts.system_prompt import SYSTEM_PROMPT
+except ImportError:
+    from prompts.system_prompt import SYSTEM_PROMPT
 
 
 async def _check_groq_available() -> bool:
@@ -114,7 +98,9 @@ async def my_agent(ctx: JobContext):
 
     # Try Groq first, fall back to Google Gemini if Groq is unreachable
     if await _check_groq_available():
-        logger.info("✅ Groq API is reachable — using Groq LLM (llama-3.3-70b-versatile)")
+        logger.info(
+            "✅ Groq API is reachable — using Groq LLM (llama-3.3-70b-versatile)"
+        )
         llm = openai.LLM(
             base_url="https://api.groq.com/openai/v1",
             api_key=os.getenv("GROQ_API_KEY") or "",
@@ -126,23 +112,19 @@ async def my_agent(ctx: JobContext):
 
     # Set up a voice AI pipeline
     session = AgentSession(
-        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-        # See all available models at https://docs.livekit.io/agents/models/stt/
-        stt=deepgram.STT(model="nova-3"),
+        # Speech-to-text (STT) with multilingual support for Hindi, English, and Hinglish
+        stt=deepgram.STT(model="nova-3", language="multi"),
         # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
         # See all available models at https://docs.livekit.io/agents/models/llm/
         llm=llm,
-        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
+        # Text-to-speech (TTS) via Murf Falcon with multilingual capability (no hardcoded locale)
         tts=murf.TTS(
-                voice="Anisha", 
-                locale="en-IN",
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
-        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-        # See more at https://docs.livekit.io/agents/build/turns
+            voice="Samar",
+            style="Conversation",
+            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+            text_pacing=True,
+        ),
+        # Multilingual turn detection for seamless speech pauses in Hindi & English
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
         # allow the LLM to generate a response while waiting for the end of turn

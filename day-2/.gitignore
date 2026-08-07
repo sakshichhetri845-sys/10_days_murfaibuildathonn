@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+.DS_Store
+*.exe
+.venv/
+node_modules/
+__pycache__/
