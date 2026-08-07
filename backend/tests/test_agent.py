@@ -108,3 +108,65 @@ async def test_refuses_harmful_request() -> None:
 
         # Ensures there are no function calls or other unexpected events
         result.expect.no_more_events()
+
+
+@pytest.mark.asyncio
+async def test_multilingual_hindi() -> None:
+    """Evaluation of the agent's ability to process and respond to Hindi speaking practice queries."""
+    async with (
+        _llm() as llm,
+        AgentSession(llm=llm) as session,
+    ):
+        await session.start(Assistant())
+
+        result = await session.run(
+            user_input="नमस्ते, मुझे अपनी जॉब इंटरव्यू की तैयारी करनी है, क्या आप मदद कर सकते हैं?"
+        )
+
+        await (
+            result.expect.next_event()
+            .is_message(role="assistant")
+            .judge(
+                llm,
+                intent="""
+                Responds helpfully and enthusiastically to a Hindi query asking for job interview practice help.
+
+                The response should:
+                - Be supportive, encouraging, and welcoming
+                - Offer to practice common interview questions or self-introductions in English or Hinglish
+                """,
+            )
+        )
+
+        result.expect.no_more_events()
+
+
+@pytest.mark.asyncio
+async def test_multilingual_hinglish() -> None:
+    """Evaluation of the agent's ability to process and respond to Hinglish speaking practice queries."""
+    async with (
+        _llm() as llm,
+        AgentSession(llm=llm) as session,
+    ):
+        await session.start(Assistant())
+
+        result = await session.run(
+            user_input="Bhai, mujhe daily life English practice karni hai, kaise start karein?"
+        )
+
+        await (
+            result.expect.next_event()
+            .is_message(role="assistant")
+            .judge(
+                llm,
+                intent="""
+                Responds helpfully to a Hinglish code-mixed query about practicing daily life English speech.
+
+                The response should:
+                - Naturally handle the Hinglish language mix with warmth and encouragement
+                - Suggest a fun daily topic (hobbies, routines, food, daily life) to start practicing right away
+                """,
+            )
+        )
+
+        result.expect.no_more_events()

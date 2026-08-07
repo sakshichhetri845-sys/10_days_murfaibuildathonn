@@ -140,7 +140,7 @@ Set the `voice` argument in the `murf.TTS(...)` call:
 
 ```python
 tts=murf.TTS(
-    voice="en-US-matthew",    # Change this
+    voice="Anisha",           # Locale-free voice ID (multilingual)
     style="Conversation",
     tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
     text_pacing=True
@@ -163,10 +163,10 @@ Browse all 150+ voices: [Murf Voice Library](https://murf.ai/api/docs/voices-sty
 
 ### STT (Speech-to-Text)
 
-Default is Deepgram Nova-3. Change in the `AgentSession(stt=...)` call:
+Default is Deepgram Nova-3 with multilingual support. Change in the `AgentSession(stt=...)` call:
 
 ```python
-stt=deepgram.STT(model="nova-3")
+stt=deepgram.STT(model="nova-3", language="multi")
 ```
 
 ### LLM
