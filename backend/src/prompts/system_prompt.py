@@ -16,5 +16,5 @@ from .language import LANGUAGE
 from .objectives import OBJECTIVES
 from .style import STYLE
 
-# Complete system prompt composed from modular sections in exact sequence
-SYSTEM_PROMPT = f"{IDENTITY}\n\n{OBJECTIVES}\n\n{KNOWLEDGE}\n\n{LANGUAGE}\n\n{GUARDRAILS}\n\n{STYLE}\n\n{GREETING}\n\n{CONVERSATION_PRINCIPLES}"
+# Complete system prompt composed from modular sections in exact priority sequence
+SYSTEM_PROMPT = f"{IDENTITY}\n\n{GUARDRAILS}\n\n{OBJECTIVES}\n\n{KNOWLEDGE}\n\n{LANGUAGE}\n\n{STYLE}\n\n{GREETING}\n\n{CONVERSATION_PRINCIPLES}"
