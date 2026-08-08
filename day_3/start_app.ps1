@@ -15,12 +15,14 @@ if (-not (Test-CommandExists "pnpm")) {
 }
 
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$localLivekitExe = Join-Path (Split-Path -Parent $repoRoot) "livekit-server.exe"
 
 # Start each service in its own PowerShell window so logs remain visible.
-if (Test-CommandExists "livekit-server") {
+if (Test-Path $localLivekitExe) {
+  Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$(Split-Path -Parent $repoRoot)'; .\livekit-server.exe --dev"
+} elseif (Test-CommandExists "livekit-server") {
   Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$repoRoot'; livekit-server --dev"
-}
-else {
+} else {
   Write-Warning "livekit-server was not found. Skipping local LiveKit startup and using your configured LIVEKIT_URL instead."
 }
 
