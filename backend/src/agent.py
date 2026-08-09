@@ -210,6 +210,7 @@ async def my_agent(ctx: JobContext):
             base_url="https://api.groq.com/openai/v1",
             api_key=groq_key,
             model="llama-3.1-8b-instant",
+            max_tokens=150,
         )
     else:
         logger.info("⚡ Using Google Gemini LLM (gemini-2.0-flash)")

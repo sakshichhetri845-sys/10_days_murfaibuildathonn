@@ -152,6 +152,6 @@ async def search_learning_resources(
     if not match:
         return "No relevant learning resource found."
 
-    # Return concise content snippet
-    content_snippet = match["content"][:1000]
+    # Return concise content snippet to preserve Groq TPM limits
+    content_snippet = match["content"][:400]
     return f"Retrieved Knowledge (Topic: {match['title']}):\n{content_snippet}"
