@@ -13,12 +13,20 @@ type ConnectionDetails = {
 const API_KEY = process.env.LIVEKIT_API_KEY;
 const API_SECRET = process.env.LIVEKIT_API_SECRET;
 const LIVEKIT_URL = process.env.LIVEKIT_URL;
-const AGENT_NAME = process.env.AGENT_NAME;
+const AGENT_NAME = process.env.AGENT_NAME || 'my-agent';
 
 // don't cache the results
 export const revalidate = 0;
 
+export async function GET(req: Request) {
+  return handleTokenRequest(req);
+}
+
 export async function POST(req: Request) {
+  return handleTokenRequest(req);
+}
+
+async function handleTokenRequest(req: Request) {
   try {
     if (LIVEKIT_URL === undefined) {
       throw new Error('LIVEKIT_URL is not defined');
@@ -30,24 +38,46 @@ export async function POST(req: Request) {
       throw new Error('LIVEKIT_API_SECRET is not defined');
     }
 
-    // Parse room config from request body (if provided).
-    const body = await req.json().catch(() => ({}));
+    // Parse room config and user_id from request
+    const url = new URL(req.url);
+    const searchUserId = url.searchParams.get('user_id');
+    const headerUserId = req.headers.get('x-user-id');
+
+    let body: Record<string, unknown> = {};
+    if (req.method === 'POST') {
+      body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    }
+
+    const bodyUserId =
+      typeof body?.user_id === 'string'
+        ? body.user_id
+        : typeof body?.userId === 'string'
+          ? body.userId
+          : undefined;
+
     let roomConfig: RoomConfiguration | undefined;
     if (body?.room_config) {
       roomConfig = RoomConfiguration.fromJson(body.room_config, { ignoreUnknownFields: true });
     } else if (AGENT_NAME) {
-      // When AGENT_NAME is set, configure explicit agent dispatch so the named
-      // agent worker picks up the job when a user joins the room.
       roomConfig = RoomConfiguration.fromJson(
         { agents: [{ agentName: AGENT_NAME }] },
         { ignoreUnknownFields: true }
       );
     }
 
-    // Generate participant token
+    // Generate participant token with stable user_id if provided
     const participantName = 'user';
-    const participantIdentity = `voice_assistant_user_${Math.floor(Math.random() * 10_000)}`;
-    const roomName = `voice_assistant_room_${Math.floor(Math.random() * 10_000)}`;
+    const participantIdentity =
+      searchUserId ||
+      bodyUserId ||
+      headerUserId ||
+      `voice_assistant_user_${Math.floor(Math.random() * 10_000)}`;
+
+    // Room name includes a short random suffix so each browser session gets a
+    // fresh room — prevents stale rooms from blocking new sessions.
+    // The stable participantIdentity (user_id) is preserved for memory lookups.
+    const sessionSuffix = Math.random().toString(36).substring(2, 7);
+    const roomName = `healthsathi_${participantIdentity}_${sessionSuffix}`;
 
     const participantToken = await createParticipantToken(
       { identity: participantIdentity, name: participantName },

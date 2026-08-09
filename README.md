@@ -34,6 +34,13 @@ This repository tracks daily progress, implementations, and voice AI projects bu
   * **Modular System Prompt Architecture**: Split into 8 focused prompt modules in `backend/src/prompts/` (`identity`, `language`, `objectives`, `style`, `guardrails`, `knowledge`, `greeting`, `conversation_principles`).
   * **HealthSaathi UI**: Full responsive Next.js frontend with doctor visit preparation features, health terms simplification, and accessible design.
 
+### 🔹 [Day 4: Progress Update](./day-4)
+* **Goal**: Keep track of the next buildathon day in the same split backend/frontend project structure.
+* **Key Features**:
+  * Day 4 workspace folders for backend and frontend progress tracking.
+  * Notes for backend restart and LiveKit startup verification.
+  * Space to continue implementation work without disrupting earlier days.
+
 ---
 
 ## 🛠 How to Run Any Day's Project

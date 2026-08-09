@@ -1,5 +1,6 @@
 import logging
 import os
+import aiohttp
 
 import httpx
 from dotenv import load_dotenv
@@ -96,18 +97,20 @@ async def my_agent(ctx: JobContext):
         "room": ctx.room.name,
     }
 
-    # Try Groq first, fall back to Google Gemini if Groq is unreachable
-    if await _check_groq_available():
+    http_session = aiohttp.ClientSession()
+
+    groq_key = os.getenv("GROQ_API_KEY")
+    if groq_key:
         logger.info(
-            "✅ Groq API is reachable — using Groq LLM (llama-3.3-70b-versatile)"
+            "[LLM] Using Groq LLM (llama-3.3-70b-versatile)"
         )
         llm = openai.LLM(
             base_url="https://api.groq.com/openai/v1",
-            api_key=os.getenv("GROQ_API_KEY") or "",
+            api_key=groq_key,
             model="llama-3.3-70b-versatile",
         )
     else:
-        logger.info("⚠️ Groq API unreachable — falling back to Google Gemini 2.0 Flash")
+        logger.info("[LLM] GROQ_API_KEY missing -- falling back to Google Gemini 2.0 Flash")
         llm = google.LLM(model="gemini-2.0-flash")
 
     # Set up a voice AI pipeline
@@ -123,9 +126,8 @@ async def my_agent(ctx: JobContext):
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
             text_pacing=True,
+            http_session=http_session,
         ),
-        # Multilingual turn detection for seamless speech pauses in Hindi & English
-        turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
         # allow the LLM to generate a response while waiting for the end of turn
         # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation

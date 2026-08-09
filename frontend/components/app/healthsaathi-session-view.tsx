@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Activity,
-  AlertCircle,
   CheckCircle2,
   Heart,
   MessageSquare,
@@ -26,6 +25,7 @@ interface HealthSaathiSessionViewProps {
 }
 
 export function HealthSaathiSessionView({ onBackToLanding }: HealthSaathiSessionViewProps) {
+  const { end } = useSessionContext();
   const session = useSessionContext();
   const { messages } = useSessionMessages(session);
   const { state: agentState } = useAgent();
@@ -34,12 +34,10 @@ export function HealthSaathiSessionView({ onBackToLanding }: HealthSaathiSession
 
   const [isMuted, setIsMuted] = useState(false);
   const [showTranscript, setShowTranscript] = useState(true);
-  const [callEndedState, setCallEndedState] = useState(false);
   const [micErrorState, setMicErrorState] = useState(false);
-  const [connErrorState, setConnErrorState] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Check microphone permissions
+  // Check microphone permissions on mount
   const checkMicPermissions = async () => {
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -56,25 +54,10 @@ export function HealthSaathiSessionView({ onBackToLanding }: HealthSaathiSession
     checkMicPermissions();
   }, []);
 
-  // Handle call termination
+  // Handle call termination — delegate back to ViewController via onBackToLanding/end
   const handleEndCall = () => {
-    try {
-      session.end();
-    } catch (e) {
-      console.warn('Error ending session:', e);
-    }
-    setCallEndedState(true);
-  };
-
-  const handleRestartCall = async () => {
-    setCallEndedState(false);
-    setConnErrorState(false);
-    try {
-      await session.start();
-    } catch (e) {
-      console.error('Failed to restart session:', e);
-      setConnErrorState(true);
-    }
+    end();
+    if (onBackToLanding) onBackToLanding();
   };
 
   // Toggle mic
@@ -98,53 +81,7 @@ export function HealthSaathiSessionView({ onBackToLanding }: HealthSaathiSession
     }
   }, [messages]);
 
-  // Determine actual connection / voice state
-  const isConnecting = !session.isConnected && !callEndedState && !connErrorState && !micErrorState;
-
   const currentStatus = voiceState || agentState || 'ready';
-
-  // Render CALL ENDED state
-  if (callEndedState) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#F0F7FF] via-[#F4F9F8] to-[#FFFFFF] px-4 font-sans text-slate-800">
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md space-y-6 rounded-3xl border border-teal-100 bg-white p-8 text-center shadow-xl shadow-teal-900/5"
-        >
-          <div className="mx-auto flex size-16 items-center justify-center rounded-3xl border border-teal-100 bg-teal-50 text-teal-700">
-            <Activity className="size-8 text-teal-600" />
-          </div>
-
-          <div className="space-y-2">
-            <h2 className="text-2xl font-extrabold text-slate-900">Conversation ended.</h2>
-            <p className="text-sm leading-relaxed text-slate-600">
-              We hope the conversation helped you understand things a little more clearly.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 pt-2">
-            <Button
-              onClick={handleRestartCall}
-              className="w-full rounded-2xl bg-teal-700 py-3.5 text-base font-bold text-white shadow-md shadow-teal-700/20 hover:bg-teal-800"
-            >
-              Talk Again
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (onBackToLanding) onBackToLanding();
-                else handleRestartCall();
-              }}
-              className="w-full rounded-2xl border-slate-200 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Back to HealthSaathi
-            </Button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
 
   // Render MICROPHONE ERROR state
   if (micErrorState) {
@@ -178,71 +115,6 @@ export function HealthSaathiSessionView({ onBackToLanding }: HealthSaathiSession
           >
             Try Again
           </Button>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // Render CONNECTION ERROR state
-  if (connErrorState) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#F0F7FF] via-[#F4F9F8] to-[#FFFFFF] px-4 font-sans text-slate-800">
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md space-y-6 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl"
-        >
-          <div className="mx-auto flex size-16 items-center justify-center rounded-3xl border border-sky-100 bg-sky-50 text-sky-700">
-            <AlertCircle className="size-8 text-sky-600" />
-          </div>
-
-          <div className="space-y-2">
-            <h2 className="text-2xl font-extrabold text-slate-900">
-              Couldn&apos;t connect to HealthSaathi.
-            </h2>
-            <p className="text-sm leading-relaxed text-slate-600">
-              Please check your internet connection and try again.
-            </p>
-          </div>
-
-          <Button
-            onClick={handleRestartCall}
-            className="w-full rounded-2xl bg-teal-700 py-3.5 text-base font-bold text-white shadow-md hover:bg-teal-800"
-          >
-            Try Again
-          </Button>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // Render CONNECTING state
-  if (isConnecting) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#F0F7FF] via-[#ECFDF5] to-[#FFFFFF] px-4 font-sans text-slate-800">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md space-y-6 rounded-3xl border border-teal-100 bg-white/90 p-8 text-center shadow-xl backdrop-blur-sm"
-        >
-          {/* Calm Loading Wave Ring Animation */}
-          <div className="relative mx-auto flex size-24 items-center justify-center">
-            <motion.div
-              animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.7, 0.3] }}
-              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-              className="absolute inset-0 rounded-full bg-teal-200/60 blur-md"
-            />
-            <div className="relative flex size-16 items-center justify-center rounded-2xl bg-teal-700 text-white shadow-md">
-              <Activity className="size-8 animate-pulse text-white" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h2 className="text-2xl font-extrabold text-slate-900">
-              Connecting to HealthSaathi...
-            </h2>
-            <p className="text-sm font-medium text-slate-500">Please wait a moment.</p>
-          </div>
         </motion.div>
       </div>
     );

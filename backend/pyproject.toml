@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "agent-starter-python"
 version = "1.0.0"
 description = "Voice AI agent starter powered by Murf Falcon TTS and LiveKit Agents"
-requires-python = ">=3.10, <3.15"
+requires-python = ">=3.10, <3.14"
 
 dependencies = [
     "livekit-agents[deepgram,google,silero,turn-detector]~=1.4",
@@ -15,6 +15,7 @@ dependencies = [
     "livekit-plugins-openai>=1.4.5",
     "python-dotenv",
     "httpx",
+    "aiohttp",
 ]
 
 [dependency-groups]

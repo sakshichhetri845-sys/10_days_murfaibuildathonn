@@ -26,11 +26,23 @@ interface AppProps {
   appConfig: AppConfig;
 }
 
+function getOrCreateUserId(): string {
+  if (typeof window === 'undefined') return 'user_hs_default';
+  let userId = localStorage.getItem('hs_user_id');
+  if (!userId) {
+    userId = `user_hs_${Math.random().toString(36).substring(2, 10)}`;
+    localStorage.setItem('hs_user_id', userId);
+  }
+  return userId;
+}
+
 export function App({ appConfig }: AppProps) {
   const tokenSource = useMemo(() => {
-    return typeof process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT === 'string'
-      ? getSandboxTokenSource(appConfig)
-      : TokenSource.endpoint('/api/token');
+    if (typeof process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT === 'string') {
+      return getSandboxTokenSource(appConfig);
+    }
+    const userId = getOrCreateUserId();
+    return TokenSource.endpoint(`/api/token?user_id=${encodeURIComponent(userId)}`);
   }, [appConfig]);
 
   const session = useSession(

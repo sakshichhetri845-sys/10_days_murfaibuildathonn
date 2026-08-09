@@ -1,6 +1,7 @@
 import logging
 import os
 
+import aiohttp
 import httpx
 from dotenv import load_dotenv
 from livekit import rtc
@@ -8,8 +9,8 @@ from livekit import rtc
 # pyrefly: ignore [missing-import]
 from livekit.agents import (
     Agent,
-    AgentServer,
     AgentSession,
+    AgentServer,
     JobContext,
     JobProcess,
     cli,
@@ -27,15 +28,31 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-# System prompt is modularized in src/prompts/system_prompt.py
 try:
+    from src.memory_tools import (
+        forget_my_data,
+        lookup_user_memory,
+        save_user_memory,
+        what_do_you_remember,
+    )
+    from src.memory_service import MemoryService
     from src.prompts.system_prompt import SYSTEM_PROMPT
 except ImportError:
+    from memory_tools import (
+        forget_my_data,
+        lookup_user_memory,
+        save_user_memory,
+        what_do_you_remember,
+    )
+    from memory_service import MemoryService
     from prompts.system_prompt import SYSTEM_PROMPT
 
 
 async def _check_groq_available() -> bool:
-    """Quick health check: can we reach the Groq API from this network?"""
+    """
+    Check Groq availability. Returns False if rate-limited or unreachable.
+    Checks the actual remaining token budget to avoid mid-session failures.
+    """
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(
@@ -50,38 +67,67 @@ async def _check_groq_available() -> bool:
                     "max_tokens": 1,
                 },
             )
-            return resp.status_code == 200
+            if resp.status_code == 429:
+                logger.warning("[LLM] Groq rate limit hit — switching to Gemini")
+                return False
+            if resp.status_code != 200:
+                logger.warning(f"[LLM] Groq returned {resp.status_code} — switching to Gemini")
+                return False
+            # Check remaining daily token budget from response headers
+            remaining = resp.headers.get("x-ratelimit-remaining-tokens-day", "")
+            if remaining and int(remaining) < 5000:
+                logger.warning(f"[LLM] Groq daily tokens low ({remaining} left) — switching to Gemini")
+                return False
+            return True
     except Exception as e:
-        logger.warning(f"Groq health check failed: {e}")
+        logger.warning(f"[LLM] Groq health check failed: {e} — switching to Gemini")
         return False
 
 
-class Assistant(Agent):
-    def __init__(self) -> None:
-        super().__init__(instructions=SYSTEM_PROMPT)
+def _build_greeting(user_id: str) -> str:
+    """
+    Look up memory for this user and return a personalised opening line.
+    Falls back to a generic greeting for new users.
+    The greeting must match the tone defined in the system prompt.
+    """
+    try:
+        memory = MemoryService.get_memory(user_id)
+        if memory and memory.get("name"):
+            name = memory["name"]
+            last = memory.get("last_triage_outcome", "")
+            if last:
+                return (
+                    f"Welcome back, {name}. Last time, we discussed a health concern — "
+                    f"{last}. How are you feeling today?"
+                )
+            return f"Welcome back, {name}. How can I help you today?"
+    except Exception as e:
+        logger.warning(f"Could not load memory for greeting: {e}")
+    return "Namaste! I'm HealthSathi. How can I help you today?"
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+
+class Assistant(Agent):
+    def __init__(self, initial_greeting: str) -> None:
+        super().__init__(
+            instructions=SYSTEM_PROMPT,
+            tools=[
+                lookup_user_memory,
+                save_user_memory,
+                forget_my_data,
+                what_do_you_remember,
+            ],
+        )
+        self._initial_greeting = initial_greeting
+
+    async def on_enter(self) -> None:
+        """Speak the personalised greeting as soon as the agent joins."""
+        await self.session.say(self._initial_greeting, allow_interruptions=True)
 
 
 server = AgentServer()
 
 
-def prewarm(proc: JobProcess):
+def prewarm(proc: JobProcess) -> None:
     proc.userdata["vad"] = silero.VAD.load()
 
 
@@ -89,70 +135,72 @@ server.setup_fnc = prewarm
 
 
 @server.rtc_session(agent_name="my-agent")
-async def my_agent(ctx: JobContext):
-    # Logging setup
-    # Add any other context you want in all log entries here
-    ctx.log_context_fields = {
-        "room": ctx.room.name,
-    }
+async def my_agent(ctx: JobContext) -> None:
+    ctx.log_context_fields = {"room": ctx.room.name}
 
-    # Try Groq first, fall back to Google Gemini if Groq is unreachable
-    if await _check_groq_available():
-        logger.info(
-            "✅ Groq API is reachable — using Groq LLM (llama-3.3-70b-versatile)"
-        )
+    # --- connect first so participants are visible ---
+    await ctx.connect()
+
+    # --- resolve stable user_id from the connected room ---
+    user_id = "anonymous_user"
+    if ctx.room and ctx.room.remote_participants:
+        p = next(iter(ctx.room.remote_participants.values()), None)
+        if p and p.identity:
+            user_id = p.identity
+    logger.info(f"[memory] resolved user_id={user_id}")
+
+    # --- build personalised greeting from memory (sync, safe) ---
+    initial_greeting = _build_greeting(user_id)
+
+    # --- LLM selection: Groq primary when available, Gemini fallback ---
+    groq_key = os.getenv("GROQ_API_KEY")
+    groq_available = False
+    if groq_key:
+        groq_available = await _check_groq_available()
+
+    if groq_available:
+        logger.info("[LLM] Groq llama-3.3-70b-versatile — primary")
         llm = openai.LLM(
             base_url="https://api.groq.com/openai/v1",
-            api_key=os.getenv("GROQ_API_KEY") or "",
+            api_key=groq_key,
             model="llama-3.3-70b-versatile",
         )
     else:
-        logger.info("⚠️ Groq API unreachable — falling back to Google Gemini 2.0 Flash")
+        logger.info("[LLM] Groq unavailable/rate-limited — Google Gemini 2.0 Flash fallback")
         llm = google.LLM(model="gemini-2.0-flash")
 
-    # Set up a voice AI pipeline
+    # --- aiohttp session for Murf TTS, cleaned up on job end ---
+    http_session = aiohttp.ClientSession()
+    ctx.add_shutdown_callback(http_session.close)
+
+    # --- voice pipeline ---
     session = AgentSession(
-        # Speech-to-text (STT) with multilingual support for Hindi, English, and Hinglish
         stt=deepgram.STT(model="nova-3", language="multi"),
-        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-        # See all available models at https://docs.livekit.io/agents/models/llm/
         llm=llm,
-        # Text-to-speech (TTS) via Murf Falcon with multilingual capability (no hardcoded locale)
         tts=murf.TTS(
             voice="Samar",
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
             text_pacing=True,
+            http_session=http_session,
         ),
-        # Multilingual turn detection for seamless speech pauses in Hindi & English
-        turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
+        turn_detection=MultilingualModel(),
         preemptive_generation=True,
+        # Pass user_id via userdata so memory tools can resolve it from RunContext
+        userdata={"user_id": user_id},
     )
 
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead.
-    # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
-    # 1. Install livekit-agents[openai]
-    # 2. Set OPENAI_API_KEY in .env.local
-    # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. Use the following session setup instead of the version above
-    # session = AgentSession(
-    #     llm=openai.realtime.RealtimeModel(voice="marin")
-    # )
+    # Keep userdata in sync if a new participant joins mid-session
+    @ctx.room.on("participant_connected")
+    def on_participant_connected(participant: rtc.RemoteParticipant) -> None:
+        logger.info(f"Participant connected: identity={participant.identity}")
+        if participant.identity:
+            session.userdata["user_id"] = participant.identity
 
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
-
-    # Start the session, which initializes the voice pipeline and warms up the models
+    # --- start the session ---
     await session.start(
-        agent=Assistant(),
+        agent=Assistant(initial_greeting=initial_greeting),
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
@@ -165,9 +213,6 @@ async def my_agent(ctx: JobContext):
             ),
         ),
     )
-
-    # Join the room and connect to the user
-    await ctx.connect()
 
 
 if __name__ == "__main__":
