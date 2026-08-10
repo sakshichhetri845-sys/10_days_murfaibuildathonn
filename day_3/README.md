@@ -1,46 +1,56 @@
-# Day 3 — Voice UI & Web Interface
+# Day 3 — Voice UI & Web Interface (#VoiceForBharat Challenge)
+
+## Progress & Milestones Achieved
+- [x] Developed a modern web interface for **BolBuddy** using Next.js 15, React 19, TypeScript, and Tailwind CSS.
+- [x] Integrated an animated orb visualizer (`bolbuddy-session-view.tsx`) reflecting speaking and listening states in real time.
+- [x] Created a welcome landing view (`welcome-view.tsx`) with 1-click session launch.
+- [x] Added an interactive Live Conversation Transcript view for visual speech review.
+- [x] Added session control buttons (microphone mute, end call, and memory drawer toggle).
+
+---
 
 ## Overview
-Day 3 delivered a modern Next.js web application interface for **BolBuddy**, built using React, TypeScript, Tailwind CSS, and LiveKit Agents UI components.
+Day 3 delivered a full web application user experience for **BolBuddy**. The interface provides immediate visual feedback through responsive audio visualizers, allowing learners to see when BolBuddy is listening or speaking.
+
+---
 
 ## Objective
-Create a responsive, engaging web UI with real-time audio visualization, session controls, and live conversation transcript streaming.
+Build a web user interface with LiveKit Agents UI components, dynamic audio visualization, microphone controls, and transcript streaming as part of Day 3 of the #VoiceForBharat challenge.
 
-## What I Built
-- Next.js 15 Web Application with TypeScript and Tailwind CSS.
-- Animated orb audio visualizer (`bolbuddy-session-view.tsx`) reflecting speaking and listening states.
-- Welcome view screen (`welcome-view.tsx`) with instant room connection.
-- Live conversation transcript toggle drawer for visual speech review.
-- Microphone mute, session control, and persistent memory side panel drawer (`memory-panel.tsx`).
+---
 
-## Implementation
-- Frontend entry: `frontend/app/page.tsx`.
-- Token route API endpoint: `frontend/app/api/token/route.ts`.
-- Components in `frontend/components/app/` and `frontend/components/agents-ui/`.
+## Web Architecture & Components
+
+```
+User Browser (Next.js Frontend)
+      ↓ (Token API Request)
+Token Route (/api/token/route.ts) → LiveKit Cloud Token
+      ↓ (WebRTC Room Join)
+BolBuddy Session View (Animated Orb + Session Controls + Live Transcript)
+```
+
+- **Main Page**: `frontend/app/page.tsx`
+- **Session View**: `frontend/components/app/bolbuddy-session-view.tsx`
+- **Welcome View**: `frontend/components/app/welcome-view.tsx`
+- **Token Route**: `frontend/app/api/token/route.ts`
+
+---
 
 ## User Experience
-Learners click "Start Practice", talk directly into their microphone, watch the animated orb react dynamically to their voice, and can toggle live text transcripts.
+1. Learner opens the web app at `http://localhost:3000`.
+2. Learner clicks **Start Practice Session**.
+3. The orb visualizer animates dynamically as the user speaks and BolBuddy responds.
+4. Learner can toggle the **Live Conversation Transcript** to review spoken words visually.
 
-## Key Features
-- Dynamic orb visualizer with active voice states.
-- Clean responsive layout for desktop and mobile browsers.
-- Real-time token generation for secure LiveKit WebRTC connection.
+---
 
-## Demo Flow
-1. Open web page at `http://localhost:3000`.
-2. Click **Start Practice Session**.
-3. View orb visualization pulsing in response to voice audio.
+## Tech Stack
+- **Framework**: Next.js 15 / React 19 / TypeScript
+- **Styling**: Tailwind CSS
+- **Voice UI**: LiveKit Components React (`@livekit/components-react`)
+- **Animations**: Motion / Lucide Icons
 
-## Tech Used
-- Next.js / React 19 / TypeScript
-- Tailwind CSS
-- LiveKit Components React (`@livekit/components-react`)
-- Lucide Icons & Motion
-
-## Files / Components
-- `frontend/app/page.tsx`
-- `frontend/components/app/welcome-view.tsx`
-- `frontend/components/app/bolbuddy-session-view.tsx`
+---
 
 ## Status
-**Completed.**
+**Day 3 Completed.**

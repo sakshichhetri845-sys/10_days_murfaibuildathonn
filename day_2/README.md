@@ -1,42 +1,59 @@
-# Day 2 — Personality & Safety Guardrails
+# Day 2 — Personality & Safety Guardrails (#VoiceForBharat Challenge)
+
+## Progress & Milestones Achieved
+- [x] Designed the core **BolBuddy** persona: a warm, encouraging English practice companion for Indian learners.
+- [x] Built a modular System Prompt architecture ([backend/src/prompts/](file:///c:/Users/livel/Downloads/murffff/murf-livekit-starter/backend/src/prompts/)).
+- [x] Implemented ultra-concise response style rules (1–2 short sentences, < 20 words per reply).
+- [x] Added support for code-mixed speech (Hinglish/Hindi register matching).
+- [x] Integrated safety guardrails preventing out-of-scope roleplay, examiner persona overload, and technical jargon leakage.
+
+---
 
 ## Overview
-Day 2 shaped **BolBuddy** into a warm, encouraging English-speaking companion specifically tuned for Indian learners preparing for job interviews, vivas, presentations, and daily conversation.
+Day 2 focused on giving **BolBuddy** a distinct personality tailored for Indian students preparing for job interviews, college vivas, campus presentations, and everyday English speech. Rather than sounding like a strict examiner or generic assistant, BolBuddy speaks like a warm, supportive peer.
+
+---
 
 ## Objective
-Establish a distinctive system prompt, conversation principles, safety guardrails, and concise response guidelines.
+Establish a custom system prompt, conversation principles, Indian context safety guardrails, and token-efficient response guidelines as part of Day 2 of the #VoiceForBharat challenge.
 
-## What I Built
-- Modular System Prompt architecture ([backend/src/prompts/](file:///c:/Users/livel/Downloads/murffff/murf-livekit-starter/backend/src/prompts/)).
-- Identity definition (`identity.py`): Warm Indian English practice companion.
-- Conversation principles (`conversation_principles.py`): Short 1-2 sentence replies (< 20 words), no robotic fluff, natural code-mixing support (English + Hindi + Hinglish).
-- Guardrails (`guardrails.py`): Prevents non-educational roleplay, blocks technical jargon leakage, refuses harmful queries politely.
+---
 
-## Implementation
-- `backend/src/prompts/system_prompt.py` compiles modular guidelines into a compact system prompt (~340 tokens).
-- Dynamic tone adaptation for interview prep, viva practice, and daily speech.
+## BolBuddy Persona Architecture
+
+### 1. Identity (`identity.py`)
+- Empathetic, friendly companion for Indian engineering students and job aspirants.
+- Encourages practice without shaming mistakes or giving long lectures.
+
+### 2. Conversation Principles (`conversation_principles.py`)
+- **Strict Brevity**: Normally answer in 1 sentence, maximum 2 short sentences (under 20 words).
+- **Code-Mixing Support**: Understands Hinglish and responds in natural, accessible language.
+- **Goal Offering**: Proactively offers practice options when learners mention interview or viva goals.
+
+### 3. Safety & System Guardrails (`guardrails.py`)
+- Refuses non-educational requests politely in one short sentence.
+- Never outputs raw tool syntax (`<function=...>`, JSON objects) or internal database terms.
+
+---
+
+## System Prompt Compilation
+
+All prompt modules compile into a compact system prompt (~340 tokens) defined in [backend/src/prompts/system_prompt.py](file:///c:/Users/livel/Downloads/murffff/murf-livekit-starter/backend/src/prompts/system_prompt.py).
+
+---
 
 ## User Experience
-Learners experience an empathetic, highly conversational AI partner that speaks in short, natural sentences without robotic lectures or overwhelming feedback.
+1. **User**: *"Hi BolBuddy, I feel nervous speaking English in job interviews."*
+2. **BolBuddy**: *"That's a fantastic goal! I'd love to help you prepare. Want to practice common interview questions in English or Hinglish?"*
 
-## Key Features
-- Ultra-concise response style (1-2 sentences maximum).
-- Indian context & Hinglish register support.
-- Safety guardrails preventing invalid tool leakage or out-of-scope behavior.
+---
 
-## Demo Flow
-1. User: *"Hi BolBuddy, I feel nervous speaking English in interviews."*
-2. BolBuddy: *"That's totally normal! We can practice together step by step. What would you like to start with?"*
+## Tech Stack
+- **Voice AI Framework**: LiveKit Agents SDK (`livekit-agents`)
+- **Prompt Architecture**: Modular Python Prompt Components
+- **Language Support**: English, Hindi, Hinglish
 
-## Tech Used
-- Python 3.10+
-- LiveKit Agents Prompt Engine
-- Modular Prompt Architecture
-
-## Files / Components
-- `backend/src/prompts/system_prompt.py`
-- `backend/src/prompts/identity.py`
-- `backend/src/prompts/guardrails.py`
+---
 
 ## Status
-**Completed.**
+**Day 2 Completed.**
