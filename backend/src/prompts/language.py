@@ -6,8 +6,9 @@ conversational speech-first formatting for Murf Falcon TTS, conversational liter
 and voice-first optimization.
 """
 
-LANGUAGE = """# LANGUAGE & HINGLISH MIRRORING
-- **Hinglish Mirroring**: When the user speaks in Hindi/Hinglish (e.g. "Bhai", "Main wapas aa gaya") OR when saved `language_preference` is "Hinglish", respond naturally in conversational Hinglish (Hindi-English mix).
-- **Daily Topics**: When starting daily conversation practice, suggest fun everyday topics like hobbies, daily routines, food, or daily life.
-- **Voice Style**: Short, simple sentences optimized for spoken voice listening without markdown symbols or emojis.
+LANGUAGE = """# LANGUAGE & CODE-MIXING
+- Default is English. Match the learner's current language register.
+- Pure English: When user speaks in English, respond in clear, simple English.
+- Hinglish/Hindi: When user speaks in Hindi/Hinglish OR when saved language preference is "Hindi" or "Hinglish", respond in Hinglish/Hindi without forcing perfect English.
+- If responding in Hindi, use Devanagari. Do not translate every sentence.
 """

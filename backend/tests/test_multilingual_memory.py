@@ -90,7 +90,7 @@ async def test_multilingual_hinglish_memory_saving(temp_db):
     # User utterance: "Mujhe interview ke liye English practice karni hai."
     res = await save_user_memory(
         context=None,
-        name="Ramesh",
+        name="Sakshyam",
         language_preference="Hinglish",
         learning_goal="job interview",
         topic_practiced="interview questions",
@@ -134,7 +134,7 @@ async def test_returning_user_greeting_english(temp_db) -> None:
     user_id = "greet_en_user_201"
     await save_user_memory(
         context=None,
-        name="Ramesh",
+        name="Sakshyam",
         learning_goal="internship interview",
         user_id=user_id,
     )
@@ -158,7 +158,7 @@ async def test_returning_user_greeting_english(temp_db) -> None:
             .judge(
                 eval_llm,
                 intent="""
-                Welcomes Ramesh back in warm conversational English.
+                Welcomes Sakshyam back in warm conversational English.
                 Refers to his internship interview preparation goal.
                 Offers a helpful next step (e.g. practicing interview questions or self-introduction).
                 """,
@@ -174,7 +174,7 @@ async def test_returning_user_greeting_hindi(temp_db) -> None:
     user_id = "greet_hi_user_202"
     await save_user_memory(
         context=None,
-        name="Ramesh",
+        name="Sakshyam",
         language_preference="Hindi",
         learning_goal="job interview",
         user_id=user_id,
@@ -199,7 +199,7 @@ async def test_returning_user_greeting_hindi(temp_db) -> None:
             .judge(
                 eval_llm,
                 intent="""
-                Welcomes Ramesh back in warm, encouraging Hindi or Hinglish mirroring the user's Hindi greeting.
+                Welcomes Sakshyam back in warm, encouraging Hindi or Hinglish mirroring the user's Hindi greeting.
                 Acknowledges his interview practice goal and offers to practice together.
                 """,
             )
@@ -214,7 +214,7 @@ async def test_returning_user_greeting_hinglish(temp_db) -> None:
     user_id = "greet_hinglish_user_203"
     await save_user_memory(
         context=None,
-        name="Ramesh",
+        name="Sakshyam",
         language_preference="Hinglish",
         learning_goal="viva",
         user_id=user_id,
@@ -239,7 +239,7 @@ async def test_returning_user_greeting_hinglish(temp_db) -> None:
             .judge(
                 eval_llm,
                 intent="""
-                Welcomes Ramesh back naturally in warm Hinglish/English.
+                Welcomes Sakshyam back naturally in warm Hinglish/English.
                 Refers to his viva / college project goal and offers helpful practice.
                 """,
             )

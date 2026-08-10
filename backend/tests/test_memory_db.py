@@ -53,7 +53,7 @@ def test_create_save_close_and_retrieve_user(temp_db):
 
     created_record = create_or_update_user(
         user_id=user_id,
-        name="Ramesh",
+        name="Sakshyam",
         language_preference="English + Hindi",
         facts=facts,
         db_path=temp_db,
@@ -61,7 +61,7 @@ def test_create_save_close_and_retrieve_user(temp_db):
 
     assert created_record is not None
     assert created_record["user_id"] == user_id
-    assert created_record["name"] == "Ramesh"
+    assert created_record["name"] == "Sakshyam"
     assert created_record["language_preference"] == "English + Hindi"
     assert created_record["facts"]["current_level"] == "beginner"
 
@@ -69,7 +69,7 @@ def test_create_save_close_and_retrieve_user(temp_db):
 
     assert retrieved_user is not None
     assert retrieved_user["user_id"] == user_id
-    assert retrieved_user["name"] == "Ramesh"
+    assert retrieved_user["name"] == "Sakshyam"
     assert retrieved_user["language_preference"] == "English + Hindi"
     assert retrieved_user["facts"]["current_level"] == "beginner"
     assert retrieved_user["facts"]["learning_goal"] == "job interview"

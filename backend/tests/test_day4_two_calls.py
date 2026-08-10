@@ -45,7 +45,7 @@ async def test_day4_call1_vs_call2_flow(temp_db):
 
     CALL 1 (New User):
     - New user connects (no prior memory).
-    - User shares name ('Ramesh') and goal ('internship interview').
+    - User shares name ('Sakshyam') and goal ('internship interview').
     - User grants explicit permission ('Yes, please save that').
     - Memory is persisted into database via save_user_memory().
     - Call 1 ends.
@@ -56,7 +56,7 @@ async def test_day4_call1_vs_call2_flow(temp_db):
     CALL 2 (Returning User):
     - Same user connects with identical user_id.
     - Agent retrieves memory via lookup_user_memory().
-    - Agent recognizes returning user by name ('Ramesh') and goal ('internship interview').
+    - Agent recognizes returning user by name ('Sakshyam') and goal ('internship interview').
     - Personalized greeting & conversation happens.
     """
     user_id = "day4_test_user_ramesh_999"
@@ -72,7 +72,7 @@ async def test_day4_call1_vs_call2_flow(temp_db):
     # 2. User grants explicit permission to save name and learning goal
     save_result = await save_user_memory(
         context=None,
-        name="Ramesh",
+        name="Sakshyam",
         learning_goal="internship interview",
         user_id=user_id,
     )
@@ -81,7 +81,7 @@ async def test_day4_call1_vs_call2_flow(temp_db):
     # 3. Verify memory stored in DB
     record_call1 = get_user(user_id=user_id, db_path=temp_db)
     assert record_call1 is not None
-    assert record_call1["name"] == "Ramesh"
+    assert record_call1["name"] == "Sakshyam"
     assert record_call1["facts"]["learning_goal"] == "internship interview"
 
     # =========================================================================
@@ -101,7 +101,7 @@ async def test_day4_call1_vs_call2_flow(temp_db):
     assert returning_memory_json != "No saved memory found for this user."
 
     memory_dict = json.loads(returning_memory_json)
-    assert memory_dict["name"] == "Ramesh"
+    assert memory_dict["name"] == "Sakshyam"
     assert memory_dict["learning_goal"] == "internship interview"
 
     # 2. Perform Agent conversation evaluation for Call 2 returning user greeting
@@ -127,7 +127,7 @@ async def test_day4_call1_vs_call2_flow(temp_db):
             .judge(
                 eval_llm,
                 intent="""
-                Welcomes the returning user naturally and enthusiastically by name ('Ramesh').
+                Welcomes the returning user naturally and enthusiastically by name ('Sakshyam').
                 Refers to their primary goal ('internship interview') and offers relevant practice questions.
                 Should NOT mention technical database terms or raw SQL statements.
                 """,

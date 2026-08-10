@@ -1,25 +1,8 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  BookOpen,
-  Brain,
-  Briefcase,
-  Coffee,
-  Database,
-  GraduationCap,
-  MapPin,
-  MessageSquare,
-  Mic,
-  MicOff,
-  PhoneOff,
-  ShieldAlert,
-  Sparkles,
-  Trash2,
-  User,
-  X,
-} from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { Brain, MessageSquare, Mic, MicOff, PhoneOff } from 'lucide-react';
+import { motion } from 'motion/react';
 import {
   useAgent,
   useLocalParticipant,
@@ -29,7 +12,8 @@ import {
 } from '@livekit/components-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/shadcn/utils';
-import { resetPersistentUserId } from '@/lib/utils';
+import { EvaluationFeedback, FeedbackCard } from './feedback-card';
+import { MemoryPanel, UserMemoryData } from './memory-panel';
 
 export function BolBuddySessionView() {
   const session = useSessionContext();
@@ -38,82 +22,95 @@ export function BolBuddySessionView() {
   const { localParticipant } = useLocalParticipant();
   const { state: voiceState } = useVoiceAssistant();
   const isMuted = localParticipant ? !localParticipant.isMicrophoneEnabled : false;
-  const [showTranscript, setShowTranscript] = useState(true);
+
+  const [showTranscript, setShowTranscript] = useState(false); // Transcript hidden by default
   const [showMemoryDrawer, setShowMemoryDrawer] = useState(false);
-  const [isForgetting, setIsForgetting] = useState(false);
-  const [isForgotten, setIsForgotten] = useState(false);
+  const [memory, setMemory] = useState<UserMemoryData | null>(null);
+  const [isCallEnded, setIsCallEnded] = useState(false);
+  const [extractedFeedback, setExtractedFeedback] = useState<EvaluationFeedback | null>(null);
+
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const handleForgetMyData = async () => {
-    try {
-      setIsForgetting(true);
-      const userId = localParticipant?.identity || '';
-
-      await fetch('/api/forget', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      }).catch((e) => console.warn('Forget API call warning:', e));
-
-      resetPersistentUserId();
-      setIsForgotten(true);
-
-      setTimeout(() => {
-        setIsForgetting(false);
-        setShowMemoryDrawer(false);
-      }, 1500);
-    } catch (err) {
-      console.error('Forget data error:', err);
-      setIsForgetting(false);
-    }
-  };
-
-  // Toggle microphone
-  const toggleMicrophone = async () => {
-    if (localParticipant) {
-      await localParticipant.setMicrophoneEnabled(isMuted);
-    }
-  };
-
-  // End call
-  const endCall = () => {
-    session.end();
-  };
-
-  // Auto scroll transcript
+  // Auto scroll transcript when visible
   useEffect(() => {
-    if (scrollAreaRef.current) {
+    if (showTranscript && scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }, [messages, showTranscript]);
+
+  // Extract structured feedback if score_spoken_answer (JSON or natural spoken text) was returned in chat history
+  useEffect(() => {
+    for (const msg of messages) {
+      if (!msg.from?.isLocal && msg.message) {
+        // 1. Try JSON match first
+        try {
+          const match = msg.message.match(/\{[\s\S]*"score"[\s\S]*\}/);
+          if (match) {
+            const parsed = JSON.parse(match[0]);
+            if (typeof parsed.score === 'number') {
+              setExtractedFeedback({
+                score: parsed.score,
+                strength: parsed.strength || 'Clear ideas',
+                improvement: parsed.improvement || 'Natural phrasing',
+                example: parsed.example || '',
+              });
+              continue;
+            }
+          }
+        } catch {
+          // Ignore JSON parse errors
+        }
+
+        // 2. Fallback to spoken text pattern match (e.g., "7 out of 10")
+        const spokenScoreMatch = msg.message.match(/(\d+)\s*out of\s*10/i);
+        if (spokenScoreMatch) {
+          const scoreNum = parseInt(spokenScoreMatch[1], 10);
+          const lowerMsg = msg.message.toLowerCase();
+
+          let strength = 'Clear ideas';
+          if (lowerMsg.includes('ideas were clear') || lowerMsg.includes('clear ideas')) {
+            strength = 'Clear ideas';
+          } else if (lowerMsg.includes('clear and easy')) {
+            strength = 'Clear delivery';
+          } else if (lowerMsg.includes('structure')) {
+            strength = 'Good structure';
+          }
+
+          let improvement = 'Natural phrasing';
+          if (lowerMsg.includes('phrasing') || lowerMsg.includes('natural')) {
+            improvement = 'Natural phrasing';
+          } else if (lowerMsg.includes('filler')) {
+            improvement = 'Reduce filler words';
+          } else if (lowerMsg.includes('vocabulary')) {
+            improvement = 'Varied vocabulary';
+          }
+
+          setExtractedFeedback({
+            score: scoreNum,
+            strength: strength,
+            improvement: improvement,
+          });
+        }
+      }
     }
   }, [messages]);
 
-  // Determine current active status
+  // Determine current voice state label
   const currentStatus = voiceState || agentState || 'idle';
 
-  // Orb animation classes & glowing styles
-  const getOrbStateClass = () => {
-    switch (currentStatus) {
-      case 'listening':
-        return 'orb-listening ring-4 ring-purple-500/30 scale-105';
-      case 'thinking':
-        return 'orb-thinking ring-4 ring-indigo-500/40';
-      case 'speaking':
-        return 'orb-speaking ring-8 ring-emerald-500/30 scale-110';
-      default:
-        return 'orb-idle ring-2 ring-indigo-500/20';
-    }
-  };
-
   const getStatusText = () => {
+    if (isCallEnded) return 'Conversation ended';
     switch (currentStatus) {
+      case 'connecting':
+        return 'Connecting to BolBuddy...';
       case 'listening':
-        return 'Listening... Speak freely in English or Hinglish';
+        return 'Listening to you';
       case 'thinking':
-        return 'BolBuddy is processing...';
+        return 'BolBuddy is thinking...';
       case 'speaking':
-        return 'BolBuddy is speaking...';
+        return 'BolBuddy is speaking';
       default:
-        return 'BolBuddy is ready • Start speaking anytime';
+        return 'BolBuddy is ready';
     }
   };
 
@@ -130,25 +127,43 @@ export function BolBuddySessionView() {
     }
   };
 
-  const topicPrompts = [
-    {
-      icon: GraduationCap,
-      label: 'School & Campus',
-      text: 'Tell me about your favorite subjects in school.',
-    },
-    {
-      icon: Briefcase,
-      label: 'Job Interview',
-      text: 'Let us practice answering "Tell me about yourself".',
-    },
-    {
-      icon: User,
-      label: 'Self Introduction',
-      text: 'Help me practice introducing myself confidently.',
-    },
-    { icon: Coffee, label: 'Daily Life', text: 'What did you have for breakfast today?' },
-    { icon: MapPin, label: 'Travel', text: 'How do I ask for directions to the nearest bus stop?' },
-  ];
+  // Toggle microphone
+  const toggleMicrophone = async () => {
+    if (localParticipant) {
+      await localParticipant.setMicrophoneEnabled(isMuted);
+    }
+  };
+
+  // End conversation & show post-call feedback view
+  const handleEndCall = () => {
+    setIsCallEnded(true);
+    session.end();
+  };
+
+  // Restart session
+  const handleTryAgain = () => {
+    setIsCallEnded(false);
+    setExtractedFeedback(null);
+    session.start();
+  };
+
+  // Return to home
+  const handleBackHome = () => {
+    session.end();
+  };
+
+  // Render Post-Call Feedback Card View
+  if (isCallEnded) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#F8FAFC] p-6 text-slate-900">
+        <FeedbackCard
+          feedback={extractedFeedback}
+          onTryAgain={handleTryAgain}
+          onBackHome={handleBackHome}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-between overflow-hidden bg-[#FAFAF8] text-slate-900 selection:bg-indigo-100">
@@ -160,14 +175,12 @@ export function BolBuddySessionView() {
           </div>
           <div>
             <h1 className="text-base font-extrabold tracking-tight text-slate-900">BolBuddy</h1>
-            <p className="text-[11px] font-medium text-slate-500">
-              Voice for Bharat • Learning &amp; Literacy
-            </p>
+            <p className="text-[11px] font-medium text-slate-500">Voice-First English Companion</p>
           </div>
         </div>
 
-        {/* Connection & Mode Badge */}
         <div className="flex items-center gap-3">
+          {/* Voice State Badge */}
           <span
             className={cn(
               'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-all',
@@ -178,6 +191,7 @@ export function BolBuddySessionView() {
             <span>{getStatusText()}</span>
           </span>
 
+          {/* Transcript Toggle */}
           <Button
             variant="ghost"
             size="sm"
@@ -188,6 +202,7 @@ export function BolBuddySessionView() {
             {showTranscript ? 'Hide Transcript' : 'Show Transcript'}
           </Button>
 
+          {/* Memory Button */}
           <Button
             variant="outline"
             size="sm"
@@ -195,20 +210,20 @@ export function BolBuddySessionView() {
             className="border-indigo-200 bg-indigo-50/50 text-xs font-semibold text-indigo-700 hover:bg-indigo-100/70 hover:text-indigo-900"
           >
             <Brain className="mr-1.5 size-4 text-indigo-600" />
-            Memory &amp; Knowledge
+            Memory
           </Button>
         </div>
       </header>
 
-      {/* Main Conversation Experience Area */}
+      {/* Main Voice Interaction Area */}
       <main className="relative mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-6 py-4">
-        {/* Centered Animated Conversation Orb */}
+        {/* Animated Voice Orb */}
         <div className="my-auto flex flex-col items-center justify-center space-y-6">
           <div className="relative flex items-center justify-center">
-            {/* Outer Glow Halo */}
+            {/* Ambient Glow */}
             <div
               className={cn(
-                'absolute size-64 rounded-full opacity-60 blur-2xl transition-all duration-700 md:size-80',
+                'absolute size-64 rounded-full opacity-50 blur-2xl transition-all duration-700 md:size-80',
                 currentStatus === 'speaking' && 'bg-emerald-400/40',
                 currentStatus === 'listening' && 'bg-purple-500/40',
                 currentStatus === 'thinking' && 'bg-indigo-500/40',
@@ -216,11 +231,13 @@ export function BolBuddySessionView() {
               )}
             />
 
-            {/* Core Animated Orb */}
+            {/* Core Orb */}
             <div
               className={cn(
                 'relative flex size-44 cursor-pointer items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-indigo-800 shadow-2xl transition-all duration-500 md:size-56',
-                getOrbStateClass()
+                currentStatus === 'listening' && 'scale-105 ring-4 ring-purple-500/30',
+                currentStatus === 'thinking' && 'ring-4 ring-indigo-500/40',
+                currentStatus === 'speaking' && 'scale-110 ring-8 ring-emerald-500/30'
               )}
               onClick={toggleMicrophone}
             >
@@ -232,62 +249,39 @@ export function BolBuddySessionView() {
                   <Mic className="size-10 animate-pulse text-white" />
                 )}
                 <span className="text-[11px] font-bold tracking-wider text-white/80 uppercase">
-                  {isMuted ? 'Muted' : currentStatus}
+                  {isMuted ? 'Muted' : getStatusText()}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Subtitle status guidance */}
           <p className="max-w-md text-center text-xs font-medium text-slate-500">
             {isMuted
-              ? 'Your microphone is muted. Click the orb or mic button to resume.'
+              ? 'Microphone muted. Tap the orb to resume.'
               : 'Speak naturally in English or Hinglish. BolBuddy is listening!'}
           </p>
         </div>
 
-        {/* Turn 0 Conversation Starters (When transcript is empty) */}
-        {messages.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4 w-full max-w-2xl space-y-3 text-center"
-          >
-            <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
-              Need inspiration? Try starting with:
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {topicPrompts.map((topic, i) => {
-                const Icon = topic.icon;
-                return (
-                  <div
-                    key={i}
-                    className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200/80 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:border-indigo-300 hover:shadow-md"
-                  >
-                    <Icon className="size-3.5 text-indigo-600" />
-                    <span>{topic.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Clean Live Transcript Stream */}
+        {/* Live Transcript Stream (Hidden by default) */}
         {showTranscript && messages.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-4 flex h-48 w-full max-w-2xl flex-col rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-lg backdrop-blur-md md:h-56"
+            className="mb-4 flex h-48 w-full max-w-2xl flex-col rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-lg backdrop-blur-md md:h-56"
           >
-            <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-2">
               <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
                 <MessageSquare className="size-3.5 text-indigo-600" />
                 Live Conversation Transcript
               </span>
-              <span className="text-[10px] font-medium text-slate-400">
-                {messages.length} Turns
-              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowTranscript(false)}
+                className="h-6 text-[10px] text-slate-400 hover:text-slate-700"
+              >
+                Hide
+              </Button>
             </div>
 
             <div
@@ -296,7 +290,6 @@ export function BolBuddySessionView() {
             >
               {messages.map((msg, idx) => {
                 const isUser = msg.from?.isLocal;
-
                 return (
                   <div
                     key={idx}
@@ -333,150 +326,15 @@ export function BolBuddySessionView() {
         )}
       </main>
 
-      {/* Slide-over Memory & Knowledge Drawer */}
-      <AnimatePresence>
-        {showMemoryDrawer && (
-          <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-xs">
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white p-6 shadow-2xl"
-            >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
-                    <Brain className="size-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-slate-900">Memory &amp; Knowledge</h2>
-                    <p className="text-[11px] text-slate-500">
-                      BolBuddy features &amp; data privacy
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowMemoryDrawer(false)}
-                  className="size-8 rounded-full text-slate-400 hover:text-slate-600"
-                >
-                  <X className="size-4" />
-                </Button>
-              </div>
+      {/* Memory Control Drawer */}
+      <MemoryPanel
+        isOpen={showMemoryDrawer}
+        memory={memory}
+        onClose={() => setShowMemoryDrawer(false)}
+        onMemoryCleared={() => setMemory(null)}
+      />
 
-              <div className="mt-4 flex-1 space-y-6 overflow-y-auto pr-1">
-                {/* Personal Memory Card */}
-                <div className="space-y-3 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
-                      <Database className="size-3.5 text-indigo-600" />
-                      Persistent User Memory (SQLite)
-                    </span>
-                    <span className="rounded-full border border-indigo-200 bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
-                      Persistent Active
-                    </span>
-                  </div>
-                  <p className="text-xs leading-relaxed text-slate-600">
-                    BolBuddy automatically remembers your preferred name, English level, learning
-                    goals, and topics practiced across calls on this device.
-                  </p>
-                  <div className="space-y-1.5 rounded-xl border border-indigo-100 bg-white p-3 text-[11px]">
-                    <div className="flex items-center justify-between text-slate-700">
-                      <span className="font-medium">Device Memory Identity:</span>
-                      <span className="font-mono font-semibold text-indigo-600">Saved</span>
-                    </div>
-                    <div className="flex items-center justify-between text-slate-700">
-                      <span className="font-medium">Explicit Verbal Consent:</span>
-                      <span className="font-semibold text-emerald-600">Required</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 pt-1 text-[11px] font-semibold text-indigo-700">
-                    <Sparkles className="size-3 text-indigo-600" />
-                    <span>Try asking: &quot;What do you remember about me?&quot;</span>
-                  </div>
-                </div>
-
-                {/* Curated Knowledge Base (RAG) */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
-                      <BookOpen className="size-3.5 text-purple-600" />
-                      Learning Resource Library (RAG)
-                    </span>
-                    <span className="text-[10px] text-slate-400">5 Curated Guides</span>
-                  </div>
-                  <div className="space-y-2">
-                    {[
-                      { title: 'Beginner Grammar Guide', tag: 'Grammar Tips' },
-                      { title: 'Job Interview Answers', tag: 'Career Prep' },
-                      { title: 'College Viva & Academic Q&A', tag: 'Viva Prep' },
-                      { title: 'Everyday Conversation Phrases', tag: 'Fluency' },
-                      { title: 'Pronunciation & Accent Guide', tag: 'Pronunciation' },
-                    ].map((guide, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-xs text-slate-800"
-                      >
-                        <span className="font-medium">{guide.title}</span>
-                        <span className="rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
-                          {guide.tag}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Privacy & Data Consent Card */}
-                <div className="space-y-3 rounded-2xl border border-rose-100 bg-rose-50/40 p-4">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-rose-900">
-                    <ShieldAlert className="size-3.5 text-rose-600" />
-                    Privacy &amp; Data Control
-                  </div>
-                  <p className="text-xs leading-relaxed text-slate-600">
-                    You have complete ownership of your data. You can request BolBuddy to
-                    permanently delete all saved memory at any time.
-                  </p>
-                  <div className="pt-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={isForgetting || isForgotten}
-                      onClick={handleForgetMyData}
-                      className={cn(
-                        'w-full border-rose-200 text-xs font-semibold transition-all',
-                        isForgotten
-                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                          : 'bg-white text-rose-600 hover:bg-rose-100/50 hover:text-rose-700'
-                      )}
-                    >
-                      {isForgetting ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="size-3 animate-spin rounded-full border-2 border-rose-600 border-t-transparent" />
-                          <span>Deleting Memory...</span>
-                        </div>
-                      ) : isForgotten ? (
-                        <div className="flex items-center justify-center gap-1.5">
-                          <Sparkles className="size-3.5 text-emerald-600" />
-                          <span>Memory Deleted &amp; Data Forgotten</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center gap-1.5">
-                          <Trash2 className="size-3.5" />
-                          <span>Ask BolBuddy to &quot;Forget My Data&quot;</span>
-                        </div>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Glassmorphism Control Bar */}
+      {/* Bottom Control Bar */}
       <footer className="z-20 flex items-center justify-center gap-4 border-t border-slate-200/60 bg-white/90 p-4 backdrop-blur-md">
         <Button
           size="lg"
@@ -490,8 +348,8 @@ export function BolBuddySessionView() {
         <Button
           size="lg"
           variant="destructive"
-          onClick={endCall}
-          className="flex cursor-pointer items-center gap-2 rounded-full bg-rose-600 px-6 text-xs font-semibold text-white shadow-md hover:bg-rose-700"
+          onClick={handleEndCall}
+          className="flex cursor-pointer items-center gap-2 rounded-full bg-rose-600 px-6 text-xs font-bold text-white shadow-md hover:bg-rose-700"
         >
           <PhoneOff className="size-4" />
           <span>End Conversation</span>

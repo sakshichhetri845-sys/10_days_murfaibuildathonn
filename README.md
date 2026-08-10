@@ -260,6 +260,16 @@ For deeper documentation on each part, see:
 
 ---
 
+## 10 Days Progress (#VoiceForBharat Challenge)
+
+- **[Day 1 — Basic Voice Agent Pipeline](./day-01/README.md)**: Real-time duplex audio streaming using LiveKit, Deepgram STT, and Murf Falcon TTS.
+- **[Day 2 — Personality & Safety Guardrails](./day-02/README.md)**: BolBuddy Indian English companion persona, short response style, and safety guardrails.
+- **[Day 3 — Voice UI & Web Interface](./day-03/README.md)**: Next.js frontend UI with animated orb visualizer, session controls, and live conversation transcript view.
+- **[Day 4 — Persistent Memory & RAG](./day-04/README.md)**: SQLite disk-backed user memory (`bolbuddy_memory.db`), consent-based saving, verbal confirmation before deletion, and RAG resource lookup.
+- **[Day 5 — The Tools](./day-05/README.md)**: Dynamic structured function tools (`fetch_next_exercise` & `score_spoken_answer`), curated local exercise dataset, single-turn LLM response, zero tool syntax leakage, and multi-tier LLM failover pool.
+
+---
+
 ## Links
 
 - [Murf API Docs](https://murf.ai/api/docs)

@@ -1,0 +1,34 @@
+{
+  "topics": {
+    "self introduction": {
+      "beginner": "Tell me about yourself in 30 seconds.",
+      "intermediate": "Give a concise 1-minute professional introduction highlighting your background.",
+      "advanced": "Deliver a compelling pitch introducing your professional profile and core interests."
+    },
+    "daily conversation": {
+      "beginner": "Describe your morning routine in simple words.",
+      "intermediate": "Talk about a hobby you are passionate about and why you enjoy it.",
+      "advanced": "Reflect on how you balance your studies, personal health, and hobbies daily."
+    },
+    "college": {
+      "beginner": "What is your favorite subject in college and why?",
+      "intermediate": "Summarize the objectives and key findings of a class project.",
+      "advanced": "Defend the technical design choices made in your main project during a viva Q&A."
+    },
+    "internship interviews": {
+      "beginner": "Why are you interested in applying for this internship?",
+      "intermediate": "Tell me about a challenge you faced during a project and how you handled it.",
+      "advanced": "How do your key strengths align with the technical requirements of this internship role?"
+    },
+    "workplace communication": {
+      "beginner": "How do you introduce yourself to a new colleague at work?",
+      "intermediate": "How would you structure a polite email or message requesting feedback from a manager?",
+      "advanced": "Deliver a concise project status update highlight accomplishments, risks, and next steps."
+    },
+    "confidence building": {
+      "beginner": "Speak for 30 seconds about something you feel proud of achieving.",
+      "intermediate": "Present a short 1-minute argument explaining an idea to improve campus life.",
+      "advanced": "Deliver an impromptu 1.5-minute response on how to stay motivated during exams."
+    }
+  }
+}

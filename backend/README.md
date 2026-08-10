@@ -8,6 +8,9 @@ The Python backend for the Voice Agent Starter. It runs a real-time voice AI pip
 User speaks → [Deepgram STT] → text → [Gemini LLM] → response → [Murf Falcon TTS] → audio → User hears
 ```
 
+> **Note**: Day 5 currently uses a locally curated exercise dataset rather than a live external API. The exercises are designed around common student learning contexts.
+
+
 LiveKit handles the real-time audio transport. The agent connects to LiveKit as a participant, listens for user speech, and responds with synthesized audio.
 
 ## Setup

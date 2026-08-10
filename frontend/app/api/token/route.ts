@@ -75,7 +75,9 @@ async function handleTokenRequest(req: Request, body?: Record<string, unknown>) 
   const { userId, isNewCookie } = await getOrGenerateUserId(req, body);
   const participantName = typeof body?.participantName === 'string' ? body.participantName : 'user';
   const participantIdentity = userId;
-  const roomName = `voice_assistant_room_${Math.floor(Math.random() * 10_000)}`;
+  const roomName =
+    (body?.roomName as string | undefined) ||
+    `bolbuddy_room_${userId.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
 
   const participantToken = await createParticipantToken(
     { identity: participantIdentity, name: participantName },

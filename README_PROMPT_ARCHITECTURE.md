@@ -144,3 +144,13 @@ It is designed to be an AI speaking companion.
 Every design decision should support one central mission:
 
 **Help learners become confident English speakers through natural conversations—not lessons.**
+
+---
+
+## Token Efficiency & TPM Optimization
+
+To prevent Groq Tokens-Per-Minute (TPM) rate limit issues:
+- System prompt is ultra-compact (~380 tokens runtime overhead).
+- Non-runtime guidelines and design principles are documented here in `README_PROMPT_ARCHITECTURE.md` rather than sent to the LLM context.
+- Function tools use concise docstrings with explicit trigger conditions.
+- Context history is automatically pruned to keep runtime tokens within safe limits.

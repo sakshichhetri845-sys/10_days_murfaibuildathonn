@@ -65,7 +65,7 @@ async def test_master_day4_integration_flow(master_db):
     # 2. User grants permission & saves identity + learning goal
     save_res = await save_user_memory(
         context=None,
-        name="Ramesh",
+        name="Sakshyam",
         language_preference="Hinglish",
         learning_goal="internship interview",
         user_id=user_id,
@@ -75,7 +75,7 @@ async def test_master_day4_integration_flow(master_db):
     # 3. Verify SQLite DB disk persistence
     rec_c1 = get_user(user_id=user_id, db_path=master_db)
     assert rec_c1 is not None
-    assert rec_c1["name"] == "Ramesh"
+    assert rec_c1["name"] == "Sakshyam"
     assert rec_c1["facts"]["learning_goal"] == "internship interview"
 
     # =========================================================================
@@ -113,7 +113,7 @@ async def test_master_day4_integration_flow(master_db):
         await msg_assert.is_message(role="assistant").judge(
             eval_llm,
             intent="""
-            Recognizes returning user Ramesh naturally and warmly.
+            Recognizes returning user Sakshyam naturally and warmly.
             Refers to his internship interview preparation goal.
             Offers to practice interview questions today.
             """,
@@ -195,7 +195,7 @@ async def test_master_day4_integration_flow(master_db):
             eval_llm3,
             intent="""
             Greets the user as a new user with no remembered profile or prior facts.
-            Does NOT reference deleted memory facts (Ramesh, internship interview).
+            Does NOT reference deleted memory facts (Sakshyam, internship interview).
             """,
         )
 

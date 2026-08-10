@@ -35,6 +35,9 @@ if (Test-Path $envFile) {
   }
 }
 
+# Clean up any existing running agent worker processes to prevent worker conflicts
+Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*agent.py*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+
 # Start each service in its own PowerShell window so logs remain visible.
 if (-not $isCloud) {
   if (Test-Path $localLivekitExe) {

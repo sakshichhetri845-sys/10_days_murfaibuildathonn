@@ -60,7 +60,7 @@ async def test_remember_returning_user_fully_populated(temp_db):
     user_id = "rem_full_user_102"
     await save_user_memory(
         context=None,
-        name="Ramesh",
+        name="Sakshyam",
         language_preference="Hinglish",
         level="intermediate",
         learning_goal="job interview",
@@ -73,7 +73,7 @@ async def test_remember_returning_user_fully_populated(temp_db):
     assert res != "No saved memory found for this user."
 
     memory_dict = json.loads(res)
-    assert memory_dict["name"] == "Ramesh"
+    assert memory_dict["name"] == "Sakshyam"
     assert memory_dict["language_preference"] == "Hinglish"
     assert memory_dict["learning_goal"] == "job interview"
     assert "self introduction" in memory_dict["topics_practiced"]
@@ -127,7 +127,7 @@ async def test_remember_agent_dialogue_evaluation(temp_db) -> None:
     user_id = "rem_dialogue_user_105"
     await save_user_memory(
         context=None,
-        name="Ramesh",
+        name="Sakshyam",
         learning_goal="job interview",
         topic_practiced="self introduction",
         user_id=user_id,
@@ -159,7 +159,7 @@ async def test_remember_agent_dialogue_evaluation(temp_db) -> None:
         await msg_assert.is_message(role="assistant").judge(
             eval_llm,
             intent="""
-            Explains saved memory naturally and warmly in conversational terms (recalls name Ramesh and job interview goal).
+            Explains saved memory naturally and warmly in conversational terms (recalls name Sakshyam and job interview goal).
             Does NOT expose internal database terms, user IDs, or technical JSON keys.
             Warmly offers that the user can request to delete/forget their memory if they wish.
             """,

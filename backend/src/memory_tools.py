@@ -82,33 +82,49 @@ def _resolve_user_id(context: Optional[RunContext] = None, user_id: str = "") ->
         return user_id.strip()
 
     if context:
-        if hasattr(context, "userdata") and isinstance(context.userdata, dict):
-            uid = context.userdata.get("user_id")
-            if uid and str(uid).strip().lower() not in ("null", "none", "undefined"):
-                return str(uid).strip()
-
-        if hasattr(context, "session") and context.session:
-            sess_ud = getattr(context.session, "userdata", None)
-            if isinstance(sess_ud, dict) and sess_ud.get("user_id"):
-                uid = sess_ud.get("user_id")
-                if uid and str(uid).strip().lower() not in (
-                    "null",
-                    "none",
-                    "undefined",
-                ):
+        try:
+            ud = getattr(context, "userdata", None)
+            if isinstance(ud, dict) and ud.get("user_id"):
+                uid = ud.get("user_id")
+                if uid and str(uid).strip().lower() not in ("null", "none", "undefined"):
                     return str(uid).strip()
+        except Exception:
+            pass
 
-            room_io = getattr(context.session, "room_io", None)
-            if room_io:
-                room = getattr(room_io, "room", None)
-                if (
-                    room
-                    and hasattr(room, "remote_participants")
-                    and room.remote_participants
-                ):
-                    participant = next(iter(room.remote_participants.values()), None)
-                    if participant and getattr(participant, "identity", None):
-                        return participant.identity
+        try:
+            sess = getattr(context, "session", None)
+            if sess:
+                sess_ud = getattr(sess, "userdata", None)
+                if isinstance(sess_ud, dict) and sess_ud.get("user_id"):
+                    uid = sess_ud.get("user_id")
+                    if uid and str(uid).strip().lower() not in ("null", "none", "undefined"):
+                        return str(uid).strip()
+                proc = getattr(sess, "proc", None)
+                if proc:
+                    pud = getattr(proc, "userdata", None)
+                    if isinstance(pud, dict) and pud.get("user_id"):
+                        uid = pud.get("user_id")
+                        if uid and str(uid).strip().lower() not in ("null", "none", "undefined"):
+                            return str(uid).strip()
+        except Exception:
+            pass
+
+        try:
+            sess = getattr(context, "session", None)
+            if sess:
+                room_io = getattr(sess, "room_io", None)
+                if room_io:
+                    room = getattr(room_io, "room", None)
+                    if (
+                        room
+                        and hasattr(room, "remote_participants")
+                        and room.remote_participants
+                    ):
+                        participant = next(iter(room.remote_participants.values()), None)
+                        if participant and getattr(participant, "identity", None):
+                            return participant.identity
+        except Exception:
+            pass
 
     return "default_user"
 
@@ -118,16 +134,7 @@ async def lookup_user_memory(
     context: RunContext,
     user_id: str = "",
 ) -> str:
-    """
-    Look up saved learning memory for the current user.
-
-    Use this tool when the user asks what you remember about them, their name, learning goals,
-    current English level, topics practiced, or recurring challenges.
-
-    Args:
-        context: RunContext provided by the agent framework.
-        user_id: Optional explicit user identifier.
-    """
+    """Look up saved user memory facts. Use only when needed to retrieve saved memory."""
     target_user_id = _resolve_user_id(context, user_id)
     if not target_user_id:
         logger.warning("lookup_user_memory: No user_id resolved")
@@ -192,23 +199,7 @@ async def save_user_memory(
     recurring_challenge: str = "",
     user_id: str = "",
 ) -> str:
-    """
-    Save or update memory facts for the current user.
-
-    MANDATORY CONSENT RULE: Do NOT invoke this tool unless the user has given explicit verbal permission
-    (e.g., 'yes', 'sure', 'okay', 'go ahead', 'remember it') to save/remember the specific fact.
-    If the user declined ('no', 'don't save that') or gave an ambiguous response, DO NOT invoke this tool.
-
-    Args:
-        context: RunContext provided by the agent framework.
-        name: Learner's preferred name.
-        language_preference: Preferred language mode (e.g. English, Hinglish).
-        level: Current English level (e.g. beginner, intermediate, advanced).
-        learning_goal: Primary learning goal (e.g. job interview, college, viva, internship).
-        topic_practiced: Specific topic practiced (e.g. self introduction).
-        recurring_challenge: Concise qualitative challenge area (e.g. past tense).
-        user_id: Optional explicit user identifier.
-    """
+    """Save user memory facts (name, level, goal, challenge)."""
     target_user_id = _resolve_user_id(context, user_id)
     if not target_user_id:
         logger.warning("save_user_memory: No user_id resolved")
@@ -266,16 +257,11 @@ async def forget_my_data(
     context: RunContext,
     user_id: str = "",
 ) -> str:
-    """
-    Permanently delete or reset all saved memory and learning records for the current user.
-
-    MANDATORY CONFIRMATION RULE: Do NOT invoke this tool unless the user has explicitly confirmed
-    their request to delete, reset, clear, or forget their saved memory (e.g. 'Yes', 'Sure', 'Delete it', 'Reset it', 'Go ahead').
-    If the user has not confirmed or has declined ('No', 'Keep my data'), DO NOT invoke this tool.
-
-    Args:
-        context: RunContext provided by the agent framework.
-        user_id: Optional explicit user identifier.
+    """Permanently delete user memory records.
+    WHEN TO USE: ONLY after user explicitly confirms deletion (e.g. 'Yes', 'Delete it').
+    WHEN NOT TO USE: DO NOT invoke unless user has explicitly confirmed deletion.
+    INPUT: Optional user_id string.
+    RETURNS: Deletion result status string.
     """
     target_user_id = _resolve_user_id(context, user_id)
     if not target_user_id:
@@ -300,16 +286,7 @@ async def forget_my_data(
 @function_tool
 async def what_do_you_remember(
     context: RunContext,
-    user_id: str = "",
+    user_id: str,
 ) -> str:
-    """
-    Retrieve and summarize what BolBuddy currently remembers about the user.
-
-    Use this tool when the user asks 'What do you remember about me?', 'What have you saved about me?',
-    'Do you remember my goal?', or asks to review their stored profile facts.
-
-    Args:
-        context: RunContext provided by the agent framework.
-        user_id: Optional explicit user identifier.
-    """
+    """Summarize saved memory for current user. RESPONSE RULE: Warmly explain saved memory facts (recalling name and goal) and ALWAYS end by offering: 'If you would ever like me to delete or forget any of your saved details, just let me know!'"""
     return await lookup_user_memory(context, user_id=user_id)

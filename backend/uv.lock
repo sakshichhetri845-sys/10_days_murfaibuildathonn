@@ -15,6 +15,7 @@ source = { editable = "." }
 dependencies = [
     { name = "livekit-agents", extra = ["deepgram", "google", "silero", "turn-detector"] },
     { name = "livekit-murf" },
+    { name = "livekit-plugins-groq" },
     { name = "livekit-plugins-noise-cancellation" },
     { name = "livekit-plugins-openai" },
     { name = "python-dotenv" },
@@ -31,6 +32,7 @@ dev = [
 requires-dist = [
     { name = "livekit-agents", extras = ["deepgram", "google", "silero", "turn-detector"], specifier = "~=1.4" },
     { name = "livekit-murf", specifier = ">=0.1.1" },
+    { name = "livekit-plugins-groq", specifier = ">=1.4.5" },
     { name = "livekit-plugins-noise-cancellation", specifier = "~=0.2" },
     { name = "livekit-plugins-openai", specifier = ">=1.4.5" },
     { name = "python-dotenv" },
@@ -1239,6 +1241,9 @@ google = [
 images = [
     { name = "pillow" },
 ]
+openai = [
+    { name = "livekit-plugins-openai" },
+]
 silero = [
     { name = "livekit-plugins-silero" },
 ]
@@ -1339,6 +1344,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/00/2d/cea11c9f9b56455ffd2304e36adac62c095ce7108e541b8b8d9e9184d1f4/livekit_plugins_google-1.4.5.tar.gz", hash = "sha256:35493811d00c36782e8f7bb9cada6b1b5743a98bf54a3083cf6ada8cecca782e", size = 39323, upload-time = "2026-03-11T06:45:53.535Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3f/8d/7ab5a23df7c3621f820fbfe1331efbcdcc94a85625617c1f9e75a2ceedb3/livekit_plugins_google-1.4.5-py3-none-any.whl", hash = "sha256:f11836b9208ec2f280dde8d64a89e88ada4c7e7f24cf4d32cdd4034180e33455", size = 45936, upload-time = "2026-03-11T06:45:52.254Z" },
+]
+
+[[package]]
+name = "livekit-plugins-groq"
+version = "1.4.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "livekit" },
+    { name = "livekit-agents", extra = ["codecs", "openai"] },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/03/3c/35692bbd99aec289e824c15660dfc544efeda02efb4277496f50757c8c04/livekit_plugins_groq-1.4.5.tar.gz", hash = "sha256:c76848ea343b8727af5ea9ea31efed738771aaa4a1b30cdd71c5e8e1b8153498", size = 6134, upload-time = "2026-03-11T06:45:58.038Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c5/a8/22a46d8cd293afc9f110d566a1ba62915e53f0147fe9a69c8b999a142797/livekit_plugins_groq-1.4.5-py3-none-any.whl", hash = "sha256:b040fe4bb7c03dbe1beb593debacf475b3a4daf2f74a9b7f5b29245df31828c2", size = 7363, upload-time = "2026-03-11T06:45:56.501Z" },
 ]
 
 [[package]]

@@ -138,20 +138,16 @@ async def search_learning_resources(
     context: RunContext,
     query: str,
 ) -> str:
-    """
-    Search curated English learning resources for grammar rules, viva tips, interview prep, pronunciation, and conversation guidelines.
-
-    Use this tool ONLY when the user explicitly asks a specific conceptual English learning question or requests educational tips.
-    DO NOT call this tool for general greetings or small talk.
-
-    Args:
-        context: RunContext provided by the agent framework.
-        query: Specific learning question or topic to look up.
+    """Search English learning resources for grammar rules, viva tips, or interview prep.
+    WHEN TO USE: ONLY for explicit learning or prep questions (e.g. 'How do I prepare for a viva?').
+    WHEN NOT TO USE: For general greetings, small talk, or everyday chat.
+    INPUT: Specific query string.
+    RETURNS: Concise knowledge snippet or no resource message.
     """
     match = query_learning_resources(query)
     if not match:
         return "No relevant learning resource found."
 
     # Return concise content snippet to preserve Groq TPM limits
-    content_snippet = match["content"][:400]
-    return f"Retrieved Knowledge (Topic: {match['title']}):\n{content_snippet}"
+    content_snippet = match["content"][:250]
+    return f"Retrieved Knowledge ({match['title']}):\n{content_snippet}"

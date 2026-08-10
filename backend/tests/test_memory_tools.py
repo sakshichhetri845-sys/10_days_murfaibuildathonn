@@ -38,7 +38,7 @@ async def test_lookup_existing_user(temp_db):
     user_id = "user_ramesh_test_1"
     create_or_update_user(
         user_id=user_id,
-        name="Ramesh",
+        name="Sakshyam",
         language_preference="English + Hindi",
         facts={
             "current_level": "beginner",
@@ -53,7 +53,7 @@ async def test_lookup_existing_user(temp_db):
     assert result_json != "No saved memory found for this user."
 
     memory = json.loads(result_json)
-    assert memory["name"] == "Ramesh"
+    assert memory["name"] == "Sakshyam"
     assert memory["language_preference"] == "English + Hindi"
     assert memory["level"] == "beginner"
     assert memory["learning_goal"] == "job interview"
