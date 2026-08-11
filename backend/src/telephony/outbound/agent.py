@@ -75,8 +75,9 @@ class BolBuddyOutboundAgent(Agent):
         user_id: str = "",
     ) -> str:
         """Look up saved user memory facts. Use only when needed to retrieve saved memory."""
-        logger.info("TOOL CALL: lookup_user_memory")
-        res = await fn_lookup_user_memory(context, user_id=user_id)
+        uid = user_id or getattr(self.ctx.proc, "userdata", {}).get("user_id", "default_user")
+        logger.info(f"TOOL CALL: lookup_user_memory (user_id='{uid}')")
+        res = await fn_lookup_user_memory(context, user_id=uid)
         logger.info("TOOL COMPLETE: lookup_user_memory")
         return res
 
@@ -93,7 +94,8 @@ class BolBuddyOutboundAgent(Agent):
         user_id: str = "",
     ) -> str:
         """Save user memory facts (name, level, goal, challenge)."""
-        logger.info(f"TOOL CALL: save_user_memory (name='{name}')")
+        uid = user_id or getattr(self.ctx.proc, "userdata", {}).get("user_id", "default_user")
+        logger.info(f"TOOL CALL: save_user_memory (name='{name}', user_id='{uid}')")
         res = await fn_save_user_memory(
             context,
             name=name,
@@ -102,7 +104,7 @@ class BolBuddyOutboundAgent(Agent):
             learning_goal=learning_goal,
             topic_practiced=topic_practiced,
             recurring_challenge=recurring_challenge,
-            user_id=user_id,
+            user_id=uid,
         )
         return res
 
@@ -113,8 +115,9 @@ class BolBuddyOutboundAgent(Agent):
         user_id: str = "",
     ) -> str:
         """Delete saved user memory after explicit user confirmation."""
-        logger.info(f"TOOL CALL: forget_my_data (user_id='{user_id}')")
-        res = await fn_forget_my_data(context, user_id=user_id)
+        uid = user_id or getattr(self.ctx.proc, "userdata", {}).get("user_id", "default_user")
+        logger.info(f"TOOL CALL: forget_my_data (user_id='{uid}')")
+        res = await fn_forget_my_data(context, user_id=uid)
         return res
 
     @function_tool
@@ -124,7 +127,8 @@ class BolBuddyOutboundAgent(Agent):
         user_id: str = "",
     ) -> str:
         """Summarize saved user memory."""
-        res = await fn_what_do_you_remember(context, user_id=user_id)
+        uid = user_id or getattr(self.ctx.proc, "userdata", {}).get("user_id", "default_user")
+        res = await fn_what_do_you_remember(context, user_id=uid)
         return res
 
     @function_tool
@@ -321,7 +325,7 @@ async def outbound_agent(ctx: JobContext):
             voice="Anisha",
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=1),
-            text_pacing=True,
+            text_pacing=False,
         ),
         vad=ctx.proc.userdata["vad"],
         min_endpointing_delay=0.2,
