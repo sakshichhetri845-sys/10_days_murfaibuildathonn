@@ -1,25 +1,20 @@
-"""Trigger an outbound call.
+"""Trigger an outbound call for BolBuddy.
 
-The outbound agent doesn't call anyone on its own — it waits to be dispatched
-into a room with a phone number attached. This script does that dispatch.
+Dispatches the outbound BolBuddy agent into a room with phone number and learner metadata attached.
 
-Make sure the worker is running first:
+Usage:
 
     uv run python src/telephony/outbound/agent.py dev
 
-Then place a call:
+Then trigger a call from another terminal:
 
-    uv run python src/telephony/outbound/dial.py --to +15551234567
-
-This is the scriptable equivalent of:
-
-    lk dispatch create --agent-name outbound-agent --room my-room \\
-      --metadata '{"phone_number": "+15551234567"}'
+    uv run python src/telephony/outbound/dial.py --to +9779876543210 --user-id sakshyam
 """
 
 import argparse
 import asyncio
 import json
+import os
 import re
 import sys
 import uuid
@@ -36,18 +31,24 @@ AGENT_NAME = "outbound-agent"
 E164 = re.compile(r"^\+[1-9]\d{6,14}$")
 
 
-async def dial(phone_number: str, room_name: str) -> None:
+async def dial(phone_number: str, room_name: str, user_id: str = "default_user", name: str = "") -> None:
     """Create the room and dispatch the outbound agent into it."""
     lk = api.LiveKitAPI()
     try:
         await lk.room.create_room(api.CreateRoomRequest(name=room_name))
+
+        metadata = json.dumps({
+            "phone_number": phone_number,
+            "user_id": user_id,
+            "name": name,
+        })
 
         # The agent reads this metadata to know who to call.
         await lk.agent_dispatch.create_dispatch(
             api.CreateAgentDispatchRequest(
                 agent_name=AGENT_NAME,
                 room=room_name,
-                metadata=json.dumps({"phone_number": phone_number}),
+                metadata=metadata,
             )
         )
     finally:
@@ -55,11 +56,23 @@ async def dial(phone_number: str, room_name: str) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Place an outbound call.")
+    parser = argparse.ArgumentParser(description="Place an outbound BolBuddy practice call.")
     parser.add_argument(
         "--to",
         required=True,
-        help="Number to call, in E.164 format (e.g. +15551234567)",
+        help="Number to call, in E.164 format (e.g. +9779876543210)",
+    )
+    parser.add_argument(
+        "--user-id",
+        "--learner",
+        dest="user_id",
+        default="default_user",
+        help="Learner user_id to load persistent memory context.",
+    )
+    parser.add_argument(
+        "--name",
+        default="",
+        help="Learner name.",
     )
     parser.add_argument(
         "--room",
@@ -68,17 +81,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # if not E164.match(args.to):
-    #     sys.exit(
-    #         f"'{args.to}' is not a valid E.164 number. "
-    #         "Include the country code and a leading +, e.g. +15551234567."
-    #     )
-
     room_name = args.room or f"outbound-{uuid.uuid4().hex[:8]}"
 
-    asyncio.run(dial(args.to, room_name))
+    asyncio.run(dial(args.to, room_name, user_id=args.user_id, name=args.name))
 
-    print(f"Dispatched {AGENT_NAME} to room '{room_name}' to call {args.to}.")
+    print(f"Dispatched {AGENT_NAME} to room '{room_name}' to call {args.to} for learner '{args.user_id}'.")
     print("Watch the worker terminal for call progress.")
 
 

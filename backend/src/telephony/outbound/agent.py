@@ -1,25 +1,23 @@
-"""Outbound telephony agent — places calls and talks to whoever answers.
+"""
+BolBuddy Outbound Telephony Agent — Day 6 Voice Agent.
 
-Unlike the inbound agent, this one does the dialling. It waits to be dispatched
-into a room with a phone number in the job metadata, then asks LiveKit to call
-that number and bridge it into the room.
-
-Run the worker with:
-
-    uv run python src/telephony/outbound/agent.py dev
-
-Then trigger a call from another terminal:
-
-    uv run python src/telephony/outbound/dial.py --to +15551234567
-
-See src/telephony/README.md for the trunk setup.
+Initiates daily English practice calls at the learner's chosen time.
+Integrates BolBuddy's complete voice pipeline:
+- Deepgram Nova-3 Multilingual STT (en + hi + hinglish)
+- Primary NVIDIA LLM (with Google Gemini fallback)
+- Murf Falcon TTS (voice="Anisha")
+- Silero VAD + LiveKit Agents SDK (~1.4)
+- Persistent Memory (db.py & memory_tools.py)
+- Call outcome logging (outbound.py)
 """
 
 import asyncio
 import json
 import logging
 import os
+import sys
 
+import httpx
 from dotenv import load_dotenv
 from livekit import api, rtc
 from livekit.agents import (
@@ -34,170 +32,290 @@ from livekit.agents import (
     room_io,
     tokenize,
 )
-from livekit.plugins import deepgram, google, murf, noise_cancellation, silero
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit.agents.job import JobExecutorType
+from livekit.agents.voice.transcription.filters import TextTransforms
+from livekit.plugins import deepgram, google, murf, noise_cancellation, openai, silero
 
-logger = logging.getLogger("outbound-agent")
+# Add backend/src to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from db import get_or_create_user, get_user, init_db
+from exercises import get_next_exercise as fn_get_next_exercise
+from memory_tools import (
+    async_prefetch_user_memory,
+    forget_my_data as fn_forget_my_data,
+    lookup_user_memory as fn_lookup_user_memory,
+    save_user_memory as fn_save_user_memory,
+    what_do_you_remember as fn_what_do_you_remember,
+)
+from outbound import record_call_outcome
+from prompts.system_prompt import SYSTEM_PROMPT
+from rag import search_learning_resources as fn_search_learning_resources
+from scoring import score_spoken_answer as fn_score_spoken_answer
+
+logger = logging.getLogger("bolbuddy.outbound_agent")
 load_dotenv(".env.local")
 
-# Required — create this with `lk sip outbound create` (see src/telephony/README.md).
-OUTBOUND_TRUNK_ID = os.getenv("LIVEKIT_SIP_OUTBOUND_TRUNK_ID")
-
-# Optional — a phone number to transfer people to when they ask for a human.
-TRANSFER_TO_NUMBER = os.getenv("TRANSFER_TO_NUMBER")
-
-# Change this prompt to change what your outbound agent does.
-SYSTEM_PROMPT = """You are calling on behalf of a small business to confirm an upcoming appointment. Introduce yourself and the reason for the call immediately — people did not expect this call, so be brief and respectful. Confirm whether the appointment still works, and offer to reschedule if not. You are on a phone call, so keep responses short and conversational — no formatting, emojis, or symbols. If the person asks for a human, use the transfer_to_human tool. If you reach a voicemail or answering machine, use the detected_answering_machine tool. When the call is finished, use the end_call tool."""
-
-# The first thing the person hears when they pick up.
-GREETING = "Hi, this is an automated assistant calling to confirm your appointment. Do you have a moment?"
-
-# The identity LiveKit gives the person we call. Used to transfer them later.
+OUTBOUND_TRUNK_ID = (
+    os.getenv("LIVEKIT_SIP_OUTBOUND_TRUNK_ID", "").strip()
+    or os.getenv("LIVEKIT_SIP_TRUNK_ID", "").strip()
+)
 CALLEE_IDENTITY = "phone-user"
 
 
-class OutboundAgent(Agent):
+class BolBuddyOutboundAgent(Agent):
     def __init__(self, ctx: JobContext) -> None:
         super().__init__(instructions=SYSTEM_PROMPT)
         self.ctx = ctx
 
     @function_tool
-    async def transfer_to_human(self, context: RunContext) -> str:
-        """Transfer the person to a human colleague.
+    async def lookup_user_memory(
+        self,
+        context: RunContext,
+        user_id: str = "",
+    ) -> str:
+        """Look up saved user memory facts. Use only when needed to retrieve saved memory."""
+        logger.info("TOOL CALL: lookup_user_memory")
+        res = await fn_lookup_user_memory(context, user_id=user_id)
+        logger.info("TOOL COMPLETE: lookup_user_memory")
+        return res
 
-        Use this when they explicitly ask for a person, or when you cannot help
-        them with their request.
-        """
-        if not TRANSFER_TO_NUMBER:
-            return "Transfers are not available on this line. Offer to have someone call back instead."
-
-        # Tell them before transferring — the SIP transfer cuts off the audio.
-        await context.session.generate_reply(
-            instructions="Tell them you're connecting them to a colleague now."
+    @function_tool
+    async def save_user_memory(
+        self,
+        context: RunContext,
+        name: str = "",
+        language_preference: str = "",
+        level: str = "",
+        learning_goal: str = "",
+        topic_practiced: str = "",
+        recurring_challenge: str = "",
+        user_id: str = "",
+    ) -> str:
+        """Save user memory facts (name, level, goal, challenge)."""
+        logger.info(f"TOOL CALL: save_user_memory (name='{name}')")
+        res = await fn_save_user_memory(
+            context,
+            name=name,
+            language_preference=language_preference,
+            level=level,
+            learning_goal=learning_goal,
+            topic_practiced=topic_practiced,
+            recurring_challenge=recurring_challenge,
+            user_id=user_id,
         )
+        return res
 
-        logger.info("transferring call to %s", TRANSFER_TO_NUMBER)
-        try:
-            await self.ctx.api.sip.transfer_sip_participant(
-                api.TransferSIPParticipantRequest(
-                    room_name=self.ctx.room.name,
-                    participant_identity=CALLEE_IDENTITY,
-                    transfer_to=f"tel:{TRANSFER_TO_NUMBER}",
-                    play_dialtone=True,
-                )
-            )
-        except Exception:
-            logger.exception("transfer failed")
-            return "The transfer did not go through. Apologize and offer a call back."
+    @function_tool
+    async def forget_my_data(
+        self,
+        context: RunContext,
+        user_id: str = "",
+    ) -> str:
+        """Delete saved user memory after explicit user confirmation."""
+        logger.info(f"TOOL CALL: forget_my_data (user_id='{user_id}')")
+        res = await fn_forget_my_data(context, user_id=user_id)
+        return res
 
-        return "Transferred."
+    @function_tool
+    async def what_do_you_remember(
+        self,
+        context: RunContext,
+        user_id: str = "",
+    ) -> str:
+        """Summarize saved user memory."""
+        res = await fn_what_do_you_remember(context, user_id=user_id)
+        return res
+
+    @function_tool
+    async def search_learning_resources(
+        self,
+        context: RunContext,
+        query: str = "",
+    ) -> str:
+        """Search learning resources for grammar rules, viva tips, or interview prep."""
+        res = await fn_search_learning_resources(context, query=query)
+        return res
+
+    @function_tool
+    async def fetch_next_exercise(
+        self,
+        context: RunContext,
+        level: str = "beginner",
+        topic: str = "interview",
+    ) -> str:
+        """Return one speaking exercise for requested level and topic."""
+        res_dict = fn_get_next_exercise(level=level, topic=topic)
+        return json.dumps(res_dict)
+
+    @function_tool
+    async def score_spoken_answer(
+        self,
+        context: RunContext,
+        question: str = "",
+        answer: str = "",
+        transcript: str = "",
+        practice_topic: str = "",
+    ) -> str:
+        """Evaluate a completed spoken answer."""
+        res = await fn_score_spoken_answer(
+            context,
+            question=question,
+            answer=answer,
+            transcript=transcript,
+            practice_topic=practice_topic,
+        )
+        return res
 
     @function_tool
     async def detected_answering_machine(self, context: RunContext) -> str:
-        """Hang up because the call reached a voicemail or answering machine.
-
-        Use this as soon as you hear a recorded greeting rather than a live person.
-        """
-        logger.info("answering machine detected — hanging up")
+        """Hang up cleanly when voicemail or answering machine is detected."""
+        logger.info("Answering machine detected — hanging up and recording outcome")
+        call_id = getattr(self.ctx.proc, "userdata", {}).get("call_id", self.ctx.room.name)
+        record_call_outcome(call_id, "VOICEMAIL")
         await self._hangup()
-        return "Call ended."
+        return "Voicemail detected. Call ended."
 
     @function_tool
-    async def end_call(self, context: RunContext) -> str:
-        """Hang up the call.
-
-        Use this once the conversation is finished and you have said goodbye.
-        """
-        await context.session.generate_reply(
-            instructions="Thank them for their time and say a short goodbye."
-        )
-
-        logger.info("ending call")
+    async def end_call(
+        self,
+        context: RunContext,
+        reason: str = "DECLINED",
+    ) -> str:
+        """End the outbound call session cleanly after user declines or asks to disconnect."""
+        logger.info(f"TOOL CALL: end_call (reason='{reason}')")
+        call_id = getattr(self.ctx.proc, "userdata", {}).get("call_id", self.ctx.room.name)
+        record_call_outcome(call_id, reason.upper())
         await self._hangup()
-        return "Call ended."
+        return f"Call ended gracefully ({reason})."
 
     async def _hangup(self) -> None:
-        """Delete the room, which drops the SIP leg and ends the phone call."""
-        await self.ctx.api.room.delete_room(
-            api.DeleteRoomRequest(room=self.ctx.room.name)
-        )
+        """Delete room to drop SIP leg cleanly."""
+        try:
+            await self.ctx.api.room.delete_room(
+                api.DeleteRoomRequest(room=self.ctx.room.name)
+            )
+        except Exception as e:
+            logger.warning(f"Error closing room on hangup: {e}")
 
 
-server = AgentServer()
+def _clean_tts_text(text: str) -> str:
+    """Sanitize spoken text output for TTS."""
+    if not text:
+        return ""
+    import re
+
+    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(r"\{[\s\S]*?\}", "", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+server = AgentServer(job_executor_type=JobExecutorType.THREAD)
 
 
 def prewarm(proc: JobProcess):
-    proc.userdata["vad"] = silero.VAD.load()
+    proc.userdata["vad"] = silero.VAD.load(
+        min_speech_duration=0.1,
+        min_silence_duration=0.2,
+        prefix_padding_duration=0.2,
+        activation_threshold=0.3,
+    )
+    init_db()
 
 
 server.setup_fnc = prewarm
 
 
-def phone_number_from_metadata(ctx: JobContext) -> str | None:
-    """Read the number to dial out of the dispatch metadata set by dial.py."""
-    metadata = ctx.job.metadata
+def parse_job_metadata(ctx: JobContext) -> dict:
+    """Parse phone number, user_id, and name from job metadata."""
+    metadata = ctx.job.metadata or ""
     if not metadata:
-        return None
+        return {}
     try:
-        return json.loads(metadata).get("phone_number")
+        return json.loads(metadata)
     except json.JSONDecodeError:
-        # Allow a bare phone number as metadata too, for quick `lk dispatch` tests.
-        return metadata.strip() or None
+        return {"phone_number": metadata.strip()}
 
 
 @server.rtc_session(agent_name="outbound-agent")
 async def outbound_agent(ctx: JobContext):
-    ctx.log_context_fields = {
-        "room": ctx.room.name,
-    }
+    ctx.log_context_fields = {"room": ctx.room.name}
 
-    phone_number = phone_number_from_metadata(ctx)
+    meta = parse_job_metadata(ctx)
+    phone_number = meta.get("phone_number") or meta.get("phone")
+    user_id = meta.get("user_id") or meta.get("userId") or "default_user"
+    user_name = meta.get("name") or meta.get("user_name") or ""
+    call_id = meta.get("call_id") or ctx.room.name
+
+    ctx.proc.userdata["user_id"] = user_id
+    ctx.proc.userdata["call_id"] = call_id
+
     if not phone_number:
-        logger.error(
-            "no phone number in job metadata — dispatch with "
-            '{"phone_number": "+15551234567"}'
-        )
+        logger.error("No phone_number found in job metadata.")
+        record_call_outcome(call_id, "PROVIDER_ERROR", details="Missing destination phone number.")
         ctx.shutdown()
         return
 
     if not OUTBOUND_TRUNK_ID:
-        logger.error("LIVEKIT_SIP_OUTBOUND_TRUNK_ID is not set — cannot place calls")
+        logger.error("LIVEKIT_SIP_OUTBOUND_TRUNK_ID is not configured in environment.")
+        record_call_outcome(call_id, "PROVIDER_ERROR", details="Missing LIVEKIT_SIP_OUTBOUND_TRUNK_ID.")
         ctx.shutdown()
         return
 
-    await ctx.connect()
+    # LLM Initialization: NVIDIA API Primary Provider
+    nvidia_key = os.getenv("NVIDIA_API_KEY", "").strip()
+    nvidia_model = os.getenv("NVIDIA_MODEL", "meta/llama-3.1-70b-instruct").strip()
+    nvidia_base_url = os.getenv(
+        "NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1"
+    ).strip()
 
-    # Same voice pipeline as src/agent.py — see that file for the annotated version.
+    if nvidia_key:
+        logger.info("LLM Provider: NVIDIA API")
+        llm = openai.LLM(
+            model=nvidia_model,
+            base_url=nvidia_base_url,
+            api_key=nvidia_key,
+            temperature=0.7,
+            top_p=1.0,
+            timeout=httpx.Timeout(15.0),
+        )
+    else:
+        google_key = os.getenv("GOOGLE_API_KEY", "").strip()
+        if google_key:
+            logger.info("LLM Fallback Provider: Google Gemini")
+            llm = google.LLM(model="gemini-2.0-flash")
+        else:
+            raise ValueError("NVIDIA_API_KEY or GOOGLE_API_KEY is required.")
+
+    tts_transforms: list[TextTransforms] = ["filter_markdown", "filter_emoji"]
+
     session = AgentSession(
-        stt=deepgram.STT(model="nova-3"),
-        llm=google.LLM(
-            model="gemini-2.5-flash",
-        ),
+        stt=deepgram.STT(model="nova-3", language="multi"),
+        llm=llm,
         tts=murf.TTS(
-            voice="en-US-matthew",
+            voice="Anisha",
             style="Conversation",
-            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=1),
             text_pacing=True,
         ),
-        turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
-        preemptive_generation=True,
+        min_endpointing_delay=0.2,
+        max_endpointing_delay=0.8,
+        preemptive_generation=False,
+        tts_text_transforms=tts_transforms,
     )
 
-    # Start the session while the phone is still ringing so the models are warm
-    # by the time somebody picks up.
+    await ctx.connect()
+
     session_started = asyncio.create_task(
         session.start(
-            agent=OutboundAgent(ctx),
+            agent=BolBuddyOutboundAgent(ctx),
             room=ctx.room,
             room_options=room_io.RoomOptions(
                 audio_input=room_io.AudioInputOptions(
-                    # BVCTelephony is tuned for the narrow frequency range of phone audio.
                     noise_cancellation=lambda params: (
                         noise_cancellation.BVCTelephony()
-                        if params.participant.kind
-                        == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
+                        if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
                         else noise_cancellation.BVC()
                     ),
                 ),
@@ -205,35 +323,50 @@ async def outbound_agent(ctx: JobContext):
         )
     )
 
-    logger.info("dialing %s", phone_number)
+    logger.info(f"Dialing {phone_number} for user '{user_id}'...")
     try:
-        # wait_until_answered means this returns once the call connects — if the
-        # number is busy, declines, or never answers, it raises instead.
         await ctx.api.sip.create_sip_participant(
             api.CreateSIPParticipantRequest(
                 room_name=ctx.room.name,
                 sip_trunk_id=OUTBOUND_TRUNK_ID,
                 sip_call_to=phone_number,
                 participant_identity=CALLEE_IDENTITY,
-                participant_name="Phone user",
+                participant_name=user_name or f"User_{user_id}",
                 wait_until_answered=True,
             )
         )
+        record_call_outcome(call_id, "CONNECTED", user_id=user_id)
     except api.TwirpError as e:
-        logger.error(
-            "call to %s was not answered: %s (%s)",
-            phone_number,
-            e.message,
-            e.metadata.get("sip_status"),
-        )
+        logger.error(f"Outbound call to {phone_number} failed/unanswered: {e}")
+        record_call_outcome(call_id, "NO_ANSWER", user_id=user_id, details=str(e))
         session_started.cancel()
         ctx.shutdown()
         return
 
     await session_started
 
-    # Speak first — they just picked up an unexpected call and won't say anything.
-    await session.say(GREETING, allow_interruptions=True)
+    # Pre-fetch user memory facts
+    prefetch_task = asyncio.create_task(async_prefetch_user_memory(user_id))
+    ctx.proc.userdata["prefetch_task"] = prefetch_task
+
+    # Look up user profile name if available
+    user_record = get_user(user_id)
+    learner_name = user_name or (user_record.get("name") if user_record else None)
+
+    if learner_name:
+        greeting_text = (
+            f"Hi {learner_name}, this is BolBuddy, your English practice companion. "
+            f"You scheduled your daily practice call for this time. If you'd rather not practice now, "
+            f"just say so and I'll end the call. Want to practice for a few minutes?"
+        )
+    else:
+        greeting_text = (
+            "Hi, this is BolBuddy, your English practice companion. "
+            "You scheduled your daily practice call for this time. If you'd rather not practice now, "
+            "just say so and I'll end the call. Want to practice for a few minutes?"
+        )
+
+    await session.say(greeting_text, allow_interruptions=True)
 
 
 if __name__ == "__main__":
