@@ -35,7 +35,16 @@ def get_telephony_config() -> dict[str, Any]:
         or os.getenv("LIVEKIT_SIP_TRUNK_ID", "").strip()
     )
 
-    # Twilio optional configuration if using Twilio as LiveKit SIP provider
+    # Linphone SIP configuration (sip.linphone.org)
+    linphone_user = os.getenv("LINPHONE_USERNAME", "").strip() or os.getenv("SIP_USERNAME", "").strip()
+    linphone_domain = os.getenv("LINPHONE_DOMAIN", "sip.linphone.org").strip()
+    linphone_caller_id = (
+        os.getenv("LINPHONE_CALLER_ID", "").strip()
+        or os.getenv("SIP_CALLER_ID", "").strip()
+        or (f"sip:{linphone_user}@{linphone_domain}" if linphone_user else "")
+    )
+
+    # Legacy Twilio configuration fallback
     twilio_sid = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
     twilio_auth = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
     twilio_phone = os.getenv("TWILIO_PHONE_NUMBER", "").strip()
@@ -61,6 +70,9 @@ def get_telephony_config() -> dict[str, Any]:
         "api_key": api_key,
         "api_secret": api_secret,
         "sip_trunk_id": sip_trunk_id,
+        "linphone_username": linphone_user,
+        "linphone_domain": linphone_domain,
+        "linphone_caller_id": linphone_caller_id,
         "twilio_account_sid": twilio_sid,
         "twilio_auth_token": twilio_auth,
         "twilio_phone_number": twilio_phone,
@@ -124,7 +136,11 @@ def build_outbound_sip_request(
         "name": user_name,
     }
 
-    sip_number = config.get("twilio_phone_number") or os.getenv("SIP_CALLER_ID", "").strip()
+    sip_number = (
+        config.get("linphone_caller_id")
+        or config.get("twilio_phone_number")
+        or os.getenv("SIP_CALLER_ID", "").strip()
+    )
 
     req_kwargs = {
         "sip_trunk_id": active_trunk_id,

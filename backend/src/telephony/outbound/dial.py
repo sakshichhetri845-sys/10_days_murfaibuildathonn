@@ -81,11 +81,19 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    target_destination = args.to.strip()
+    linphone_domain = os.getenv("LINPHONE_DOMAIN", "sip.linphone.org").strip()
+    if not target_destination.startswith("+") and not target_destination.startswith("sip:"):
+        if "@" in target_destination:
+            target_destination = f"sip:{target_destination}"
+        else:
+            target_destination = f"sip:{target_destination}@{linphone_domain}"
+
     room_name = args.room or f"outbound-{uuid.uuid4().hex[:8]}"
 
-    asyncio.run(dial(args.to, room_name, user_id=args.user_id, name=args.name))
+    asyncio.run(dial(target_destination, room_name, user_id=args.user_id, name=args.name))
 
-    print(f"Dispatched {AGENT_NAME} to room '{room_name}' to call {args.to} for learner '{args.user_id}'.")
+    print(f"Dispatched {AGENT_NAME} to room '{room_name}' to call '{target_destination}' for learner '{args.user_id}'.")
     print("Watch the worker terminal for call progress.")
 
 

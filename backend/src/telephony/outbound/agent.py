@@ -335,9 +335,16 @@ async def outbound_agent(ctx: JobContext):
         )
     )
 
-    sip_number = (
-        os.getenv("TWILIO_PHONE_NUMBER", "").strip()
+    linphone_user = os.getenv("LINPHONE_USERNAME", "").strip() or os.getenv("SIP_USERNAME", "").strip()
+    linphone_domain = os.getenv("LINPHONE_DOMAIN", "sip.linphone.org").strip()
+    linphone_caller_id = (
+        os.getenv("LINPHONE_CALLER_ID", "").strip()
         or os.getenv("SIP_CALLER_ID", "").strip()
+        or (f"sip:{linphone_user}@{linphone_domain}" if linphone_user else "")
+    )
+    sip_number = (
+        linphone_caller_id
+        or os.getenv("TWILIO_PHONE_NUMBER", "").strip()
         or os.getenv("SIP_NUMBER", "").strip()
     )
 
