@@ -256,9 +256,21 @@ async def outbound_agent(ctx: JobContext):
         ctx.shutdown()
         return
 
-    if not OUTBOUND_TRUNK_ID:
-        logger.error("LIVEKIT_SIP_OUTBOUND_TRUNK_ID is not configured in environment.")
-        record_call_outcome(call_id, "PROVIDER_ERROR", details="Missing LIVEKIT_SIP_OUTBOUND_TRUNK_ID.")
+    trunk_id = (
+        os.getenv("LIVEKIT_SIP_OUTBOUND_TRUNK_ID", "").strip()
+        or os.getenv("LIVEKIT_SIP_TRUNK_ID", "").strip()
+    )
+
+    if not trunk_id or "ST_your_sip_trunk_id" in trunk_id:
+        logger.error(
+            "LIVEKIT_SIP_OUTBOUND_TRUNK_ID is not configured in environment. "
+            "Please set LIVEKIT_SIP_OUTBOUND_TRUNK_ID=ST_your_real_trunk_id in backend/.env.local"
+        )
+        record_call_outcome(
+            call_id,
+            "PROVIDER_ERROR",
+            details="Missing LIVEKIT_SIP_OUTBOUND_TRUNK_ID in backend/.env.local",
+        )
         ctx.shutdown()
         return
 
@@ -323,17 +335,27 @@ async def outbound_agent(ctx: JobContext):
         )
     )
 
+    sip_number = (
+        os.getenv("TWILIO_PHONE_NUMBER", "").strip()
+        or os.getenv("SIP_CALLER_ID", "").strip()
+        or os.getenv("SIP_NUMBER", "").strip()
+    )
+
     logger.info(f"Dialing {phone_number} for user '{user_id}'...")
     try:
+        req_kwargs = {
+            "room_name": ctx.room.name,
+            "sip_trunk_id": trunk_id,
+            "sip_call_to": phone_number,
+            "participant_identity": CALLEE_IDENTITY,
+            "participant_name": user_name or f"User_{user_id}",
+            "wait_until_answered": True,
+        }
+        if sip_number:
+            req_kwargs["sip_number"] = sip_number
+
         await ctx.api.sip.create_sip_participant(
-            api.CreateSIPParticipantRequest(
-                room_name=ctx.room.name,
-                sip_trunk_id=OUTBOUND_TRUNK_ID,
-                sip_call_to=phone_number,
-                participant_identity=CALLEE_IDENTITY,
-                participant_name=user_name or f"User_{user_id}",
-                wait_until_answered=True,
-            )
+            api.CreateSIPParticipantRequest(**req_kwargs)
         )
         record_call_outcome(call_id, "CONNECTED", user_id=user_id)
     except api.TwirpError as e:

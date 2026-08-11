@@ -124,17 +124,23 @@ def build_outbound_sip_request(
         "name": user_name,
     }
 
-    return CreateSIPParticipantRequest(
-        sip_trunk_id=active_trunk_id,
-        sip_call_to=phone_number.strip(),
-        room_name=room_name.strip(),
-        participant_identity=user_id.strip(),
-        participant_name=user_name.strip() or f"User_{user_id}",
-        participant_metadata=metadata,
-        participant_attributes=attributes,
-        play_ringtone=True,
-        wait_until_answered=False,
-    )
+    sip_number = config.get("twilio_phone_number") or os.getenv("SIP_CALLER_ID", "").strip()
+
+    req_kwargs = {
+        "sip_trunk_id": active_trunk_id,
+        "sip_call_to": phone_number.strip(),
+        "room_name": room_name.strip(),
+        "participant_identity": user_id.strip(),
+        "participant_name": user_name.strip() or f"User_{user_id}",
+        "participant_metadata": metadata,
+        "participant_attributes": attributes,
+        "play_ringtone": True,
+        "wait_until_answered": False,
+    }
+    if sip_number:
+        req_kwargs["sip_number"] = sip_number.strip()
+
+    return CreateSIPParticipantRequest(**req_kwargs)
 
 
 async def initiate_outbound_call(
