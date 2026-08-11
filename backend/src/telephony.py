@@ -11,7 +11,7 @@ import os
 import re
 from typing import Any
 
-from livekit.api import CreateSIPParticipantRequest, LiveKitAPI
+from livekit.api import CreateSIPParticipantRequest, LiveKitAPI, SIPMediaEncryption
 
 logger = logging.getLogger("agent.telephony")
 
@@ -164,6 +164,7 @@ def build_outbound_sip_request(
         "participant_attributes": attributes,
         "play_ringtone": True,
         "wait_until_answered": False,
+        "media_encryption": SIPMediaEncryption.SIP_MEDIA_ENCRYPT_ALLOW,
     }
     if clean_sip_number:
         req_kwargs["sip_number"] = clean_sip_number

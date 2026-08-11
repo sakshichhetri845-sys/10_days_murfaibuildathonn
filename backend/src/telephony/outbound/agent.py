@@ -365,6 +365,7 @@ async def outbound_agent(ctx: JobContext):
             "participant_identity": CALLEE_IDENTITY,
             "participant_name": user_name or f"User_{user_id}",
             "wait_until_answered": True,
+            "media_encryption": api.SIPMediaEncryption.SIP_MEDIA_ENCRYPT_ALLOW,
         }
         if clean_sip_number:
             req_kwargs["sip_number"] = clean_sip_number
@@ -374,7 +375,7 @@ async def outbound_agent(ctx: JobContext):
         )
         record_call_outcome(call_id, "CONNECTED", user_id=user_id)
     except api.TwirpError as e:
-        logger.error(f"Outbound call to {phone_number} failed/unanswered: {e}")
+        logger.error(f"Outbound call to {clean_call_to} failed/unanswered: {e}")
         record_call_outcome(call_id, "NO_ANSWER", user_id=user_id, details=str(e))
         session_started.cancel()
         ctx.shutdown()
@@ -392,15 +393,13 @@ async def outbound_agent(ctx: JobContext):
 
     if learner_name:
         greeting_text = (
-            f"Hi {learner_name}, this is BolBuddy, your English practice companion. "
-            f"You scheduled your daily practice call for this time. If you'd rather not practice now, "
-            f"just say so and I'll end the call. Want to practice for a few minutes?"
+            f"Hi {learner_name}, this is BolBuddy. I'm calling for your English practice session. "
+            f"Is now a good time? If not, you can simply say no and I'll end the call."
         )
     else:
         greeting_text = (
-            "Hi, this is BolBuddy, your English practice companion. "
-            "You scheduled your daily practice call for this time. If you'd rather not practice now, "
-            "just say so and I'll end the call. Want to practice for a few minutes?"
+            "Hi, this is BolBuddy. I'm calling for your English practice session. "
+            "Is now a good time? If not, you can simply say no and I'll end the call."
         )
 
     await session.say(greeting_text, allow_interruptions=True)
