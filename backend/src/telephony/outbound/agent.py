@@ -336,17 +336,18 @@ async def outbound_agent(ctx: JobContext):
     )
 
     linphone_user = os.getenv("LINPHONE_USERNAME", "").strip() or os.getenv("SIP_USERNAME", "").strip()
-    linphone_domain = os.getenv("LINPHONE_DOMAIN", "sip.linphone.org").strip()
-    linphone_caller_id = (
-        os.getenv("LINPHONE_CALLER_ID", "").strip()
+    raw_caller_id = (
+        linphone_user
+        or os.getenv("LINPHONE_CALLER_ID", "").strip()
         or os.getenv("SIP_CALLER_ID", "").strip()
-        or (f"sip:{linphone_user}@{linphone_domain}" if linphone_user else "")
-    )
-    sip_number = (
-        linphone_caller_id
         or os.getenv("TWILIO_PHONE_NUMBER", "").strip()
         or os.getenv("SIP_NUMBER", "").strip()
     )
+    clean_sip_number = raw_caller_id
+    if clean_sip_number.lower().startswith("sip:"):
+        clean_sip_number = clean_sip_number[4:]
+    if "@" in clean_sip_number:
+        clean_sip_number = clean_sip_number.split("@")[0]
 
     # Clean phone_number/sip_call_to: LiveKit expects just the phone number or SIP username (e.g. 'sakshyam' or '+977...'), not a full SIP URI.
     clean_call_to = phone_number.strip()
@@ -355,7 +356,7 @@ async def outbound_agent(ctx: JobContext):
     if "@" in clean_call_to:
         clean_call_to = clean_call_to.split("@")[0]
 
-    logger.info(f"Dialing '{clean_call_to}' for user '{user_id}'...")
+    logger.info(f"Dialing '{clean_call_to}' for user '{user_id}' (From: '{clean_sip_number}')...")
     try:
         req_kwargs = {
             "room_name": ctx.room.name,
@@ -365,8 +366,8 @@ async def outbound_agent(ctx: JobContext):
             "participant_name": user_name or f"User_{user_id}",
             "wait_until_answered": True,
         }
-        if sip_number:
-            req_kwargs["sip_number"] = sip_number
+        if clean_sip_number:
+            req_kwargs["sip_number"] = clean_sip_number
 
         await ctx.api.sip.create_sip_participant(
             api.CreateSIPParticipantRequest(**req_kwargs)

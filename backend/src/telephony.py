@@ -136,11 +136,17 @@ def build_outbound_sip_request(
         "name": user_name,
     }
 
-    sip_number = (
-        config.get("linphone_caller_id")
+    raw_sip_number = (
+        config.get("linphone_username")
+        or config.get("linphone_caller_id")
         or config.get("twilio_phone_number")
         or os.getenv("SIP_CALLER_ID", "").strip()
     )
+    clean_sip_number = raw_sip_number.strip()
+    if clean_sip_number.lower().startswith("sip:"):
+        clean_sip_number = clean_sip_number[4:]
+    if "@" in clean_sip_number:
+        clean_sip_number = clean_sip_number.split("@")[0]
 
     clean_call_to = phone_number.strip()
     if clean_call_to.lower().startswith("sip:"):
@@ -159,8 +165,8 @@ def build_outbound_sip_request(
         "play_ringtone": True,
         "wait_until_answered": False,
     }
-    if sip_number:
-        req_kwargs["sip_number"] = sip_number.strip()
+    if clean_sip_number:
+        req_kwargs["sip_number"] = clean_sip_number
 
     return CreateSIPParticipantRequest(**req_kwargs)
 
