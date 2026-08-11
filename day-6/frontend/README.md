@@ -1,132 +1,142 @@
-﻿# Frontend — HealthSaathi Voice Agent UI (Day 6)
+# Frontend — Voice Agent UI
 
-The React/Next.js frontend for the **HealthSaathi Voice Agent** with Day 6's new **Outbound Call** feature. Built with [LiveKit Agents UI](https://livekit.io/ui) components, it provides a polished interface for both live voice sessions and triggering outbound patient calls.
+The React/Next.js frontend for the Voice Agent Starter. Built with [LiveKit Agents UI](https://livekit.io/ui) components, it provides a polished interface for real-time voice conversations with your agent.
 
-## Features
+### Features
 
-- Real-time voice interaction with the HealthSaathi agent
-- **NEW (Day 6):** Outbound call trigger card — dial patients for health follow-ups
-- Multiple audio visualizer styles (ar, grid, adial, wave, ura)
+- Real-time voice interaction with LiveKit Agents
+- Camera video streaming support
+- Screen sharing capabilities
+- Multiple audio visualizer styles (`bar`, `grid`, `radial`, `wave`, `aura`)
 - Light/dark theme switching with system preference detection
-- Customizable branding via pp-config.ts
-- Chat transcript display during voice sessions
-- Camera video and screen sharing support
+- Customizable branding, colors, and UI text via configuration
 
 ## Setup
 
 ### 1. Install dependencies
 
-`ash
+```bash
 cd frontend
 pnpm install
-`
+```
 
 ### 2. Configure environment
 
-`ash
+```bash
 cp .env.example .env.local
-`
+```
 
-Fill in your LiveKit credentials:
+Fill in your LiveKit credentials (same project as the backend):
 
-`env
+```env
 LIVEKIT_URL=wss://your-project.livekit.cloud
 LIVEKIT_API_KEY=your_key
 LIVEKIT_API_SECRET=your_secret
 AGENT_NAME=my-agent
-`
+```
 
 ### 3. Run
 
-`ash
+```bash
 pnpm dev
-`
+```
 
-Open [http://localhost:3000](http://localhost:3000). Make sure the backend agent is running too.
-
-## Outbound Call UI (Day 6)
-
-A new **Outbound Call Card** (components/app/outbound-call-card.tsx) lets you trigger patient health follow-up calls directly from the UI.
-
-The frontend calls these new API routes (backed by the Python API server on port 8000):
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| /api/outbound/call | POST | Trigger an outbound call |
-| /api/outbound/history | GET | View call history |
-| /api/outbound/schedule | POST | Schedule a future call |
+Open [http://localhost:3000](http://localhost:3000). Make sure your backend agent is running too.
 
 ## Customization
 
-### Branding (pp-config.ts)
+### Branding & UI (`app-config.ts`)
 
-`	s
+Edit [`app-config.ts`](app-config.ts) to change branding, features, and button text:
+
+```ts
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'HealthSaathi',
-  pageTitle: 'HealthSaathi — AI Health Companion',
-  pageDescription: 'Your voice-first AI health companion powered by Murf Falcon TTS',
+  companyName: 'Murf AI',
+  pageTitle: 'Voice Agent Starter',
+  pageDescription: 'A voice agent powered by Murf Falcon — the fastest TTS API',
+
+  supportsChatInput: true,
+  supportsVideoInput: true,
+  supportsScreenShare: true,
+
+  logo: '/murf-logo.svg',
   accent: '#6366F1',
-  startButtonText: 'Start health check-in',
+  logoDark: '/murf-logo-dark.svg',
+  accentDark: '#818cf8',
+  startButtonText: 'Start talking',
+
+  agentName: process.env.AGENT_NAME ?? undefined,
 };
-`
+```
 
-### Audio Visualizers
+### Audio visualizers
 
-Set udioVisualizerType in pp-config.ts:
+Set `audioVisualizerType` in [`app-config.ts`](app-config.ts):
 
-| Type | Description |
-|------|------------|
-| ar (default) | Vertical bars |
-| grid | Dot grid |
-| adial | Circular bars |
-| wave | Oscilloscope wave |
-| ura | Shader-based glow |
+| Type            | Description       | Key options                                                     |
+| --------------- | ----------------- | --------------------------------------------------------------- |
+| `bar` (default) | Vertical bars     | `audioVisualizerBarCount`                                       |
+| `grid`          | Dot grid          | `audioVisualizerGridRowCount`, `audioVisualizerGridColumnCount` |
+| `radial`        | Circular bars     | `audioVisualizerRadialBarCount`, `audioVisualizerRadialRadius`  |
+| `wave`          | Oscilloscope wave | `audioVisualizerWaveLineWidth`                                  |
+| `aura`          | Shader-based glow | `audioVisualizerAuraColorShift`                                 |
+
+Use `audioVisualizerColor` / `audioVisualizerColorDark` to set accent colors across all modes.
+
+### Editing components
+
+All UI components are local and fully editable:
+
+- **`components/agents-ui/`** — Core UI: media controls, audio visualizers, chat transcript, session provider
+- **`components/app/`** — App-level logic: view transitions, welcome screen, theming
+- **`components/ui/`** — Primitive shadcn/ui components (button, select, tooltip, etc.)
+
+To update Agents UI components to the latest version:
+
+```bash
+pnpm shadcn:install
+```
 
 ## Project Structure
 
-`
+```
 frontend/
 ├── app/
-│   ├── page.tsx                          # Main page
-│   ├── layout.tsx                        # Root layout
-│   └── api/
-│       ├── token/route.ts                # LiveKit token endpoint
-│       └── outbound/
-│           ├── call/route.ts             # Trigger outbound call
-│           ├── history/route.ts          # Call history
-│           └── schedule/route.ts         # Schedule call
+│   ├── page.tsx                # Main page
+│   ├── layout.tsx              # Root layout
+│   └── api/token/route.ts      # LiveKit token endpoint
 ├── components/
-│   ├── agents-ui/                        # Agents UI (visualizers, controls, chat)
-│   ├── app/
-│   │   ├── outbound-call-card.tsx        # NEW: Outbound call trigger card
-│   │   ├── healthsaathi-session-view.tsx # Main session view
-│   │   ├── welcome-view.tsx              # Welcome / connect screen
-│   │   └── view-controller.tsx           # View state management
-│   ├── ai-elements/                      # AI conversation elements
-│   └── ui/                               # Shadcn/ui primitives
-├── hooks/                                # React hooks
-├── styles/                               # Global CSS
-├── app-config.ts                         # Branding and feature configuration
-└── package.json                          # Dependencies (pnpm)
-`
+│   ├── agents-ui/              # Agents UI components (visualizers, controls, chat)
+│   ├── app/                    # App components (welcome view, theme, controller)
+│   ├── ai-elements/            # AI conversation elements
+│   └── ui/                     # Primitive shadcn/ui components
+├── hooks/                      # React hooks (audio visualizers, controls)
+├── lib/                        # Utilities
+├── public/                     # Static assets (logos, fonts)
+├── styles/                     # Global CSS
+├── app-config.ts               # Branding & feature configuration
+└── package.json                # Dependencies (pnpm)
+```
 
 ## Deployment
 
 ### Vercel
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/murf-ai/murf-livekit-starter&root-directory=frontend&env=LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET&project-name=murf-voice-agent&repository-name=murf-voice-agent)
+
 Set these environment variables:
 
-- LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET
-- AGENT_NAME (optional — for explicit agent dispatch)
+- `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
+- `AGENT_NAME` (optional — for explicit agent dispatch)
 
-The frontend and backend connect independently to LiveKit. Use the same LiveKit project credentials on both.
+The frontend and backend don't call each other directly — they both connect to LiveKit, which handles real-time audio transport. Use the same LiveKit project credentials on both.
 
 ## Links
 
 - [LiveKit Agents UI](https://livekit.io/ui)
 - [LiveKit JavaScript SDK](https://github.com/livekit/client-sdk-js)
-- [Murf Falcon TTS](https://murf.ai/api/docs/text-to-speech/streaming)
+- [LiveKit Docs](https://docs.livekit.io)
 
 ## License
 
-MIT — see [LICENSE](../../LICENSE).
+MIT — see [LICENSE](LICENSE).
