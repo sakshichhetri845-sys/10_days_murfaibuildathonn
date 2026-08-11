@@ -348,12 +348,19 @@ async def outbound_agent(ctx: JobContext):
         or os.getenv("SIP_NUMBER", "").strip()
     )
 
-    logger.info(f"Dialing {phone_number} for user '{user_id}'...")
+    # Clean phone_number/sip_call_to: LiveKit expects just the phone number or SIP username (e.g. 'sakshyam' or '+977...'), not a full SIP URI.
+    clean_call_to = phone_number.strip()
+    if clean_call_to.lower().startswith("sip:"):
+        clean_call_to = clean_call_to[4:]
+    if "@" in clean_call_to:
+        clean_call_to = clean_call_to.split("@")[0]
+
+    logger.info(f"Dialing '{clean_call_to}' for user '{user_id}'...")
     try:
         req_kwargs = {
             "room_name": ctx.room.name,
             "sip_trunk_id": trunk_id,
-            "sip_call_to": phone_number,
+            "sip_call_to": clean_call_to,
             "participant_identity": CALLEE_IDENTITY,
             "participant_name": user_name or f"User_{user_id}",
             "wait_until_answered": True,

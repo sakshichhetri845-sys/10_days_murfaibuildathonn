@@ -82,12 +82,10 @@ def main() -> None:
     args = parser.parse_args()
 
     target_destination = args.to.strip()
-    linphone_domain = os.getenv("LINPHONE_DOMAIN", "sip.linphone.org").strip()
-    if not target_destination.startswith("+") and not target_destination.startswith("sip:"):
-        if "@" in target_destination:
-            target_destination = f"sip:{target_destination}"
-        else:
-            target_destination = f"sip:{target_destination}@{linphone_domain}"
+    if target_destination.lower().startswith("sip:"):
+        target_destination = target_destination[4:]
+    if "@" in target_destination:
+        target_destination = target_destination.split("@")[0]
 
     room_name = args.room or f"outbound-{uuid.uuid4().hex[:8]}"
 

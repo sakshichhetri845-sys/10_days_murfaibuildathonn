@@ -142,9 +142,15 @@ def build_outbound_sip_request(
         or os.getenv("SIP_CALLER_ID", "").strip()
     )
 
+    clean_call_to = phone_number.strip()
+    if clean_call_to.lower().startswith("sip:"):
+        clean_call_to = clean_call_to[4:]
+    if "@" in clean_call_to:
+        clean_call_to = clean_call_to.split("@")[0]
+
     req_kwargs = {
         "sip_trunk_id": active_trunk_id,
-        "sip_call_to": phone_number.strip(),
+        "sip_call_to": clean_call_to,
         "room_name": room_name.strip(),
         "participant_identity": user_id.strip(),
         "participant_name": user_name.strip() or f"User_{user_id}",
