@@ -199,8 +199,22 @@ class BolBuddyOutboundAgent(Agent):
             logger.warning(f"Error closing room on hangup: {e}")
 
 
+def _prune_history(session: AgentSession, max_turns: int = 4) -> None:
+    """Keep chat context history trimmed to prevent context window token bloat."""
+    try:
+        if hasattr(session, "chat_ctx") and session.chat_ctx and hasattr(session.chat_ctx, "messages"):
+            msgs = session.chat_ctx.messages
+            if len(msgs) > max_turns + 1:
+                system_msg = [msgs[0]] if (msgs and getattr(msgs[0], "role", None) == "system") else []
+                recent_msgs = msgs[-max_turns:]
+                session.chat_ctx.messages = system_msg + [m for m in recent_msgs if m not in system_msg]
+                logger.info(f"Pruned chat history to {len(session.chat_ctx.messages)} messages")
+    except Exception as e:
+        logger.warning(f"Failed to prune chat history: {e}")
+
+
 def _clean_tts_text(text: str) -> str:
-    """Sanitize spoken text output for TTS."""
+    """Sanitize spoken text output to ensure no raw tool tags, XML, or JSON reach TTS audio synthesis."""
     if not text:
         return ""
     import re
@@ -316,6 +330,25 @@ async def outbound_agent(ctx: JobContext):
         preemptive_generation=False,
         tts_text_transforms=tts_transforms,
     )
+
+    @session.on("user_speech_committed")
+    def _on_user_speech(msg):
+        _prune_history(session, max_turns=4)
+        transcript = getattr(msg, "content", "") or str(msg)
+        logger.info(f"USER SPOKE (STT TRANSCRIPT): '{transcript}'")
+        logger.info("LLM GENERATION STARTING...")
+
+    @session.on("agent_speech_started")
+    def _on_agent_speech_started(msg):
+        logger.info("LLM GENERATION COMPLETE -> MURF TTS AUDIO STARTING...")
+
+    @session.on("agent_speech_stopped")
+    def _on_agent_speech_stopped(msg):
+        logger.info("MURF TTS AUDIO PLAYBACK COMPLETE")
+
+    @session.on("error")
+    def _on_session_error(err):
+        logger.error(f"VOICE SESSION ERROR DETECTED: {err}")
 
     await ctx.connect()
 
