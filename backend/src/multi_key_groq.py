@@ -6,13 +6,14 @@ Extends livekit.plugins.groq.LLM with automatic failover across multiple API key
 
 import logging
 from typing import Any
-import openai
-from openai.types.chat import completion_create_params
 
-from livekit.agents import APIConnectOptions, DEFAULT_API_CONNECT_OPTIONS, llm
-from livekit.agents.llm import ChatContext, ToolChoice, utils as llm_utils
+import openai
+from livekit.agents import DEFAULT_API_CONNECT_OPTIONS, APIConnectOptions, llm
+from livekit.agents.llm import ChatContext, ToolChoice
+from livekit.agents.llm import utils as llm_utils
 from livekit.plugins import groq
-from livekit.plugins.openai.llm import LLMStream, is_given, NOT_GIVEN, NotGivenOr
+from livekit.plugins.openai.llm import NOT_GIVEN, LLMStream, NotGivenOr, is_given
+from openai.types.chat import completion_create_params
 
 try:
     from groq_key_manager import groq_key_manager
@@ -86,7 +87,7 @@ class MultiKeyGroqLLM(groq.LLM):
     ) -> None:
         # Get current active key from GroqKeyManager
         if groq_key_manager.key_count > 0:
-            key_idx, active_key = groq_key_manager.get_active_key()
+            _key_idx, active_key = groq_key_manager.get_active_key()
             client = groq_key_manager.get_client_for_key(active_key)
             kwargs["api_key"] = active_key
             kwargs["client"] = client
@@ -154,9 +155,7 @@ class MultiKeyGroqLLM(groq.LLM):
         if is_given(p_tool_calls):
             extra["parallel_tool_calls"] = p_tool_calls
 
-        t_choice = (
-            tool_choice if is_given(tool_choice) else self._opts.tool_choice
-        )
+        t_choice = tool_choice if is_given(tool_choice) else self._opts.tool_choice
         if is_given(t_choice):
             if isinstance(t_choice, dict):
                 extra["tool_choice"] = {
@@ -167,9 +166,11 @@ class MultiKeyGroqLLM(groq.LLM):
                 extra["tool_choice"] = t_choice
 
         if is_given(response_format):
-            extra["response_format"] = llm_utils.to_openai_response_format(response_format)
+            extra["response_format"] = llm_utils.to_openai_response_format(
+                response_format
+            )
 
-        key_idx, active_key = groq_key_manager.get_active_key()
+        _key_idx, active_key = groq_key_manager.get_active_key()
         active_client = groq_key_manager.get_client_for_key(active_key)
 
         return MultiKeyLLMStream(

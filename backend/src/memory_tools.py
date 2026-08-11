@@ -86,7 +86,11 @@ def _resolve_user_id(context: Optional[RunContext] = None, user_id: str = "") ->
             ud = getattr(context, "userdata", None)
             if isinstance(ud, dict) and ud.get("user_id"):
                 uid = ud.get("user_id")
-                if uid and str(uid).strip().lower() not in ("null", "none", "undefined"):
+                if uid and str(uid).strip().lower() not in (
+                    "null",
+                    "none",
+                    "undefined",
+                ):
                     return str(uid).strip()
         except Exception:
             pass
@@ -97,14 +101,22 @@ def _resolve_user_id(context: Optional[RunContext] = None, user_id: str = "") ->
                 sess_ud = getattr(sess, "userdata", None)
                 if isinstance(sess_ud, dict) and sess_ud.get("user_id"):
                     uid = sess_ud.get("user_id")
-                    if uid and str(uid).strip().lower() not in ("null", "none", "undefined"):
+                    if uid and str(uid).strip().lower() not in (
+                        "null",
+                        "none",
+                        "undefined",
+                    ):
                         return str(uid).strip()
                 proc = getattr(sess, "proc", None)
                 if proc:
                     pud = getattr(proc, "userdata", None)
                     if isinstance(pud, dict) and pud.get("user_id"):
                         uid = pud.get("user_id")
-                        if uid and str(uid).strip().lower() not in ("null", "none", "undefined"):
+                        if uid and str(uid).strip().lower() not in (
+                            "null",
+                            "none",
+                            "undefined",
+                        ):
                             return str(uid).strip()
         except Exception:
             pass
@@ -120,7 +132,9 @@ def _resolve_user_id(context: Optional[RunContext] = None, user_id: str = "") ->
                         and hasattr(room, "remote_participants")
                         and room.remote_participants
                     ):
-                        participant = next(iter(room.remote_participants.values()), None)
+                        participant = next(
+                            iter(room.remote_participants.values()), None
+                        )
                         if participant and getattr(participant, "identity", None):
                             return participant.identity
         except Exception:

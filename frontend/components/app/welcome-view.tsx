@@ -6,6 +6,7 @@ import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { getPersistentUserId } from '@/lib/utils';
 import { MemoryPanel, UserMemoryData } from './memory-panel';
+import { PracticeCallSection } from './practice-call-section';
 import { PRACTICE_MODES, PracticeMode, PracticeSelector } from './practice-selector';
 import { ProgressSummary } from './progress-summary';
 
@@ -180,6 +181,15 @@ export const WelcomeView = ({
           transition={{ duration: 0.5, delay: 0.1 }}
         >
           <PracticeSelector selectedModeId={selectedMode.id} onSelectMode={handleSelectMode} />
+        </motion.section>
+
+        {/* Practice Call Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+        >
+          <PracticeCallSection />
         </motion.section>
 
         {/* Light Progress Summary */}

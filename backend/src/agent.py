@@ -20,9 +20,8 @@ from livekit.agents import (
 from livekit.agents.job import JobExecutorType
 from livekit.agents.voice.transcription.filters import TextTransforms
 
-from livekit.agents.llm import FallbackAdapter
 # pyrefly: ignore [missing-import]
-from livekit.plugins import deepgram, google, groq, murf, openai, silero
+from livekit.plugins import deepgram, google, murf, openai, silero
 
 from db import get_or_create_user, init_db
 from exercises import (
@@ -53,29 +52,6 @@ from scoring import (
 
 logger = logging.getLogger("agent")
 load_dotenv(".env.local")
-
-
-async def _check_groq_available() -> bool:
-    """Quick health check: can we reach the Groq API from this network?"""
-    try:
-        model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant").strip()
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {os.getenv('GROQ_API_KEY', '')}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": "hi"}],
-                    "max_tokens": 1,
-                },
-            )
-            return resp.status_code == 200
-    except Exception as e:
-        logger.warning(f"Groq health check failed: {e}")
-        return False
 
 
 def _prune_history(session: AgentSession, max_turns: int = 4) -> None:
@@ -133,7 +109,9 @@ class Assistant(Agent):
         user_id: str = "",
     ) -> str:
         """Save user memory facts (name, level, goal, challenge)."""
-        logger.info(f"TOOL CALL: save_user_memory (name='{name}', goal='{learning_goal}')")
+        logger.info(
+            f"TOOL CALL: save_user_memory (name='{name}', goal='{learning_goal}')"
+        )
         res = await fn_save_user_memory(
             context,
             name=name,
@@ -191,9 +169,12 @@ class Assistant(Agent):
         topic: str = "interview",
     ) -> str:
         """Return one speaking exercise for requested level and topic. Use only when learner requests practice or a new exercise."""
-        logger.info(f"TOOL CALL: fetch_next_exercise (level='{level}', topic='{topic}')")
+        logger.info(
+            f"TOOL CALL: fetch_next_exercise (level='{level}', topic='{topic}')"
+        )
         res_dict = fn_get_next_exercise(level=level, topic=topic)
         import json
+
         res_str = json.dumps(res_dict)
         logger.info("TOOL COMPLETE: fetch_next_exercise")
         return res_str
@@ -218,6 +199,34 @@ class Assistant(Agent):
         )
         logger.info("TOOL COMPLETE: score_spoken_answer")
         return res
+
+    @function_tool
+    async def end_call(
+        self,
+        context: RunContext,
+        reason: str = "DECLINED",
+    ) -> str:
+        """End the outbound call session cleanly after user declines or asks to disconnect."""
+        logger.info(f"TOOL CALL: end_call (reason='{reason}')")
+        try:
+            sess = getattr(context, "session", None)
+            if sess:
+                room_io = getattr(sess, "room_io", None)
+                if room_io and hasattr(room_io, "room") and room_io.room:
+
+                    async def _disconnect_delay():
+                        await asyncio.sleep(2.5)
+                        try:
+                            await room_io.room.disconnect()
+                        except Exception as disc_err:
+                            logger.warning(f"Disconnect error: {disc_err}")
+
+                    disc_task = asyncio.create_task(_disconnect_delay())
+                    if hasattr(sess, "userdata") and isinstance(sess.userdata, dict):
+                        sess.userdata["disc_task"] = disc_task
+        except Exception as e:
+            logger.warning(f"Failed to schedule room disconnect: {e}")
+        return f"Call ended gracefully ({reason})."
 
 
 def _clean_tts_text(text: str) -> str:
@@ -253,6 +262,15 @@ def prewarm(proc: JobProcess):
     )
     init_db()
 
+    # Start persistent background daily practice scheduler
+    try:
+        from scheduler import start_scheduler_loop
+
+        sched_task = asyncio.create_task(start_scheduler_loop())
+        proc.userdata["sched_task"] = sched_task
+    except Exception as sched_err:
+        logger.warning(f"Could not start background scheduler: {sched_err}")
+
 
 server.setup_fnc = prewarm
 
@@ -264,59 +282,33 @@ async def my_agent(ctx: JobContext):
         "room": ctx.room.name,
     }
 
-    # Multi-Tier LLM Architecture: Primary (NVIDIA API) -> Secondary (Groq Multi-Key) -> Tertiary (Gemini)
-    llm_instances = []
-
-    # 1. Primary LLM: NVIDIA API (z-ai/glm-5.2)
+    # LLM Initialization: NVIDIA API Primary Provider
     nvidia_key = os.getenv("NVIDIA_API_KEY", "").strip()
-    nvidia_model = os.getenv("NVIDIA_MODEL", "z-ai/glm-5.2").strip()
-    nvidia_base_url = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1").strip()
+    nvidia_model = os.getenv("NVIDIA_MODEL", "meta/llama-3.1-70b-instruct").strip()
+    nvidia_base_url = os.getenv(
+        "NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1"
+    ).strip()
+
     if nvidia_key:
-        logger.info(f"LLM Primary Provider: NVIDIA API (Model: {nvidia_model})")
-        llm_instances.append(
-            openai.LLM(
-                model=nvidia_model,
-                base_url=nvidia_base_url,
-                api_key=nvidia_key,
-                temperature=1.0,
-                top_p=1.0,
-                timeout=httpx.Timeout(15.0),
-            )
+        logger.info("LLM Provider: NVIDIA API")
+        logger.info(f"LLM Model: {nvidia_model}")
+        logger.info(f"LLM Base URL: {nvidia_base_url}")
+        llm = openai.LLM(
+            model=nvidia_model,
+            base_url=nvidia_base_url,
+            api_key=nvidia_key,
+            temperature=0.7,
+            top_p=1.0,
+            timeout=httpx.Timeout(15.0),
         )
-
-    # 2. Secondary LLM: Groq Plugin with Multi-Key Failover Pool
-    try:
-        from groq_key_manager import groq_key_manager
-        from multi_key_groq import MultiKeyGroqLLM
-    except ImportError:
-        from .groq_key_manager import groq_key_manager
-        from .multi_key_groq import MultiKeyGroqLLM
-
-    groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant").strip()
-    if groq_key_manager.key_count > 0:
-        logger.info(
-            f"LLM Secondary Provider: Groq Multi-Key Pool ({groq_key_manager.key_count} keys, Model: {groq_model})"
-        )
-        llm_instances.append(
-            MultiKeyGroqLLM(
-                model=groq_model,
-                timeout=httpx.Timeout(10.0),
-            )
-        )
-
-    # 3. Tertiary LLM: Google Gemini
-    google_key = os.getenv("GOOGLE_API_KEY", "").strip()
-    if google_key:
-        logger.info("LLM Tertiary Provider: Google Gemini (gemini-2.0-flash)")
-        llm_instances.append(google.LLM(model="gemini-2.0-flash"))
-
-    if len(llm_instances) > 1:
-        llm = FallbackAdapter(llm=llm_instances)
-    elif len(llm_instances) == 1:
-        llm = llm_instances[0]
     else:
-        logger.info("LLM Provider Default: Google Gemini")
-        llm = google.LLM(model="gemini-2.0-flash")
+        google_key = os.getenv("GOOGLE_API_KEY", "").strip()
+        if google_key:
+            logger.info("LLM Fallback Provider: Google Gemini (gemini-2.0-flash)")
+            llm = google.LLM(model="gemini-2.0-flash")
+        else:
+            logger.error("NVIDIA_API_KEY is not set in environment variables.")
+            raise ValueError("NVIDIA_API_KEY is required to initialize BolBuddy agent.")
 
     # Built-in text transforms to strip markdown and emojis from spoken audio
     tts_transforms: list[TextTransforms] = ["filter_markdown", "filter_emoji"]
@@ -369,7 +361,7 @@ async def my_agent(ctx: JobContext):
     def _on_session_error(err):
         err_str = str(err).lower()
         if "429" in err_str or "tpm" in err_str or "rate limit" in err_str:
-            logger.error(f"Groq Rate Limit/TPM error detected: {err}")
+            logger.error(f"LLM API rate limit error detected: {err}")
 
             async def _speak_error():
                 try:
@@ -407,11 +399,31 @@ async def my_agent(ctx: JobContext):
         prefetch_task = asyncio.create_task(async_prefetch_user_memory(user_id))
         ctx.proc.userdata["prefetch_task"] = prefetch_task
 
-        # Deliver automatic personalized greeting directly (0 LLM tokens wasted)
+        # Check if room or participant represents an outbound call session
+        is_outbound = False
+        if (
+            ctx.room
+            and ctx.room.name
+            and ("outbound" in ctx.room.name.lower() or "sip" in ctx.room.name.lower())
+        ):
+            is_outbound = True
+        if (
+            participant
+            and getattr(participant, "attributes", None)
+            and participant.attributes.get("is_outbound") == "true"
+        ):
+            is_outbound = True
+
         name = user_data.get("name") if user_data else None
         facts = user_data.get("facts") if user_data else {}
         goal = facts.get("learning_goal") if facts else None
-        if name:
+
+        if is_outbound:
+            if name:
+                greeting_text = f"Hi {name}, this is BolBuddy, your English practice companion. You scheduled your daily practice call for this time. If you'd rather not practice now, just say so and I'll end the call. Want to practice for a few minutes?"
+            else:
+                greeting_text = "Hi, this is BolBuddy, your English practice companion. You scheduled your daily practice call for this time. If you'd rather not practice now, just say so and I'll end the call. Want to practice for a few minutes?"
+        elif name:
             greeting_text = f"Welcome back {name}! It's great to see you again. What would you like to practice today?"
         elif goal and goal != "everyday conversation":
             greeting_text = f"Hello! Ready to practice your {goal} today?"

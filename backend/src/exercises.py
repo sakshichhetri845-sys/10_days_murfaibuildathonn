@@ -173,4 +173,3 @@ def get_next_exercise(
         "question": question,
         "skill": matched_skill,
     }
-

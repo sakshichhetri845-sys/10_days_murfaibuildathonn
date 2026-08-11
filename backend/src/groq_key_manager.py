@@ -8,7 +8,8 @@ import logging
 import os
 import time
 from threading import Lock
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
+
 import openai
 
 logger = logging.getLogger(__name__)
@@ -25,16 +26,18 @@ class GroqKeyManager:
             except ValueError:
                 cooldown_seconds = 60.0
         self.cooldown_seconds: float = cooldown_seconds
-        self._keys: List[str] = []
-        self._rate_limited_until: Dict[int, float] = {}  # 1-based key index -> timestamp
+        self._keys: list[str] = []
+        self._rate_limited_until: dict[
+            int, float
+        ] = {}  # 1-based key index -> timestamp
         self._active_index: int = 1  # 1-based index
-        self._clients: Dict[str, openai.AsyncClient] = {}
+        self._clients: dict[str, openai.AsyncClient] = {}
         self.reload_keys()
 
     def reload_keys(self) -> None:
         """Load GROQ_API_KEY_1..N and fallback GROQ_API_KEY from environment."""
         with self._lock:
-            keys: List[str] = []
+            keys: list[str] = []
             # Check GROQ_API_KEY_1 through GROQ_API_KEY_10
             for i in range(1, 11):
                 k = os.getenv(f"GROQ_API_KEY_{i}", "").strip()
@@ -51,7 +54,9 @@ class GroqKeyManager:
             self._active_index = 1 if self._keys else 0
 
             if self._keys:
-                logger.info(f"Groq key pool initialized: {len(self._keys)} keys available")
+                logger.info(
+                    f"Groq key pool initialized: {len(self._keys)} keys available"
+                )
             else:
                 logger.error("ERROR: No Groq API keys configured.")
 
@@ -68,7 +73,7 @@ class GroqKeyManager:
         until = self._rate_limited_until.get(index_1based, 0.0)
         return time.time() >= until
 
-    def get_active_key(self) -> Tuple[int, str]:
+    def get_active_key(self) -> tuple[int, str]:
         """Return (1-based_index, key_str) of the highest-priority available key.
 
         Prefers Key 1, then Key 2, etc. If all keys are rate-limited, returns the key with the earliest expiration.
@@ -119,7 +124,7 @@ class GroqKeyManager:
             self._active_index = (index_1based % total) + 1
             return self._active_index
 
-    def get_groq_key_status(self) -> List[Dict[str, Any]]:
+    def get_groq_key_status(self) -> list[dict[str, Any]]:
         """Return status list for health diagnostics."""
         with self._lock:
             now = time.time()

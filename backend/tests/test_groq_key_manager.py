@@ -2,9 +2,8 @@
 Unit tests for Groq Key Manager and Multi-Key Failover behavior.
 """
 
-import os
 import time
-import pytest
+
 # pyrefly: ignore [missing-import]
 from src.groq_key_manager import GroqKeyManager
 

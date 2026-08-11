@@ -15,6 +15,7 @@ dependencies = [
     "livekit-plugins-noise-cancellation~=0.2",
     "livekit-plugins-openai>=1.4.5",
     "python-dotenv",
+    "tzdata>=2026.3",
 ]
 
 [dependency-groups]

@@ -45,7 +45,7 @@ export function ViewController({ appConfig }: ViewControllerProps) {
           onStartCall={start}
         />
       )}
-      {/* Active HealthSaathi Voice Session View */}
+      {/* Active BolBuddy Voice Session View */}
       {isConnected && <MotionSessionView key="session-view" {...VIEW_MOTION_PROPS} />}
     </AnimatePresence>
   );

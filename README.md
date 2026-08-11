@@ -262,11 +262,21 @@ For deeper documentation on each part, see:
 
 ## 10 Days Progress (#VoiceForBharat Challenge)
 
+| Day | Focus | Status |
+|---|---|---|
+| 1 | Basic Voice Agent Pipeline | Completed |
+| 2 | Personality & Safety Guardrails | Completed |
+| 3 | Voice UI & Web Interface | Completed |
+| 4 | Persistent Memory & RAG | Completed |
+| 5 | Tools / real data | Completed |
+| 6 | Outbound practice calls | Completed |
+
 - **[Day 1 — Basic Voice Agent Pipeline](./day_1/README.md)**: Real-time duplex audio streaming using LiveKit, Deepgram STT, and Murf Falcon TTS.
 - **[Day 2 — Personality & Safety Guardrails](./day_2/README.md)**: BolBuddy Indian English companion persona, short response style, and safety guardrails.
 - **[Day 3 — Voice UI & Web Interface](./day_3/README.md)**: Next.js frontend UI with animated orb visualizer, session controls, and live conversation transcript view.
 - **[Day 4 — Persistent Memory & RAG](./day_4/README.md)**: SQLite disk-backed user memory (`bolbuddy_memory.db`), consent-based saving, verbal confirmation before deletion, and RAG resource lookup.
 - **[Day 5 — The Tools](./day_5/README.md)**: Dynamic structured function tools (`fetch_next_exercise` & `score_spoken_answer`), curated local exercise dataset, single-turn LLM response, zero tool syntax leakage, and multi-tier LLM failover pool.
+- **[Day 6 — Outbound Calls](./day6/README.md)**: Daily practice calls at learner-selected times via LiveKit SIP Outbound Trunk, deterministic state machine, 3-part opening, and short spoken practice.
 
 ---
 

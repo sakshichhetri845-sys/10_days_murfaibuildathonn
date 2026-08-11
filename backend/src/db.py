@@ -50,7 +50,49 @@ def init_db(db_path: Optional[str] = None) -> bool:
                     name TEXT,
                     language_preference TEXT,
                     facts TEXT DEFAULT '{}',
+                    phone_number TEXT,
+                    preferred_practice_time TEXT,
                     last_interaction TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            # Migration check for existing user_memory tables
+            cursor.execute("PRAGMA table_info(user_memory)")
+            existing_cols = [row["name"] for row in cursor.fetchall()]
+            if "phone_number" not in existing_cols:
+                cursor.execute("ALTER TABLE user_memory ADD COLUMN phone_number TEXT")
+            if "preferred_practice_time" not in existing_cols:
+                cursor.execute(
+                    "ALTER TABLE user_memory ADD COLUMN preferred_practice_time TEXT"
+                )
+
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS scheduled_calls (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    phone_number TEXT NOT NULL,
+                    scheduled_time TEXT NOT NULL,
+                    status TEXT DEFAULT 'SCHEDULED',
+                    attempt_count INTEGER DEFAULT 0,
+                    last_attempt_at TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS daily_schedules (
+                    user_id TEXT PRIMARY KEY,
+                    phone_number TEXT NOT NULL,
+                    practice_topic TEXT NOT NULL DEFAULT 'Spoken English Practice',
+                    preferred_time TEXT NOT NULL,
+                    timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    next_call_at TEXT NOT NULL,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
@@ -83,7 +125,7 @@ def get_user(user_id: str, db_path: Optional[str] = None) -> Optional[dict[str, 
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT user_id, name, language_preference, facts, last_interaction, created_at, updated_at
+                SELECT user_id, name, language_preference, facts, phone_number, preferred_practice_time, last_interaction, created_at, updated_at
                 FROM user_memory
                 WHERE user_id = ?
                 """,
@@ -335,3 +377,148 @@ def record_learning_progress(
         new_facts["recurring_challenges"] = current_challenges
 
     return create_or_update_user(user_id=user_id, facts=new_facts, db_path=db_path)
+
+
+def save_learner_outbound_preferences(
+    user_id: str,
+    phone_number: str,
+    preferred_practice_time: str,
+    name: Optional[str] = None,
+    db_path: Optional[str] = None,
+) -> bool:
+    """Save user's phone number and preferred practice time in persistent database."""
+    if not user_id or not phone_number:
+        return False
+    now_iso = datetime.now(timezone.utc).isoformat()
+    try:
+        with _get_connection(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO user_memory (user_id, name, phone_number, preferred_practice_time, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    name = COALESCE(excluded.name, user_memory.name),
+                    phone_number = excluded.phone_number,
+                    preferred_practice_time = excluded.preferred_practice_time,
+                    updated_at = excluded.updated_at
+                """,
+                (user_id, name, phone_number, preferred_practice_time, now_iso),
+            )
+            conn.commit()
+            return True
+    except sqlite3.Error as e:
+        logger.error(
+            f"Failed to save learner outbound preferences for '{user_id}': {e}",
+            exc_info=True,
+        )
+        return False
+
+
+def create_scheduled_call(
+    user_id: str,
+    phone_number: str,
+    scheduled_time: str,
+    db_path: Optional[str] = None,
+) -> Optional[dict[str, Any]]:
+    """Create a new scheduled practice call entry."""
+    import uuid
+
+    if not user_id or not phone_number:
+        return None
+    call_id = f"call_{uuid.uuid4().hex[:12]}"
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    try:
+        with _get_connection(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO scheduled_calls (id, user_id, phone_number, scheduled_time, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'SCHEDULED', ?, ?)
+                """,
+                (call_id, user_id, phone_number, scheduled_time, now_iso, now_iso),
+            )
+            conn.commit()
+        return {
+            "id": call_id,
+            "user_id": user_id,
+            "phone_number": phone_number,
+            "scheduled_time": scheduled_time,
+            "status": "SCHEDULED",
+            "attempt_count": 0,
+            "created_at": now_iso,
+        }
+    except sqlite3.Error as e:
+        logger.error(
+            f"Failed to create scheduled call for '{user_id}': {e}", exc_info=True
+        )
+        return None
+
+
+def get_scheduled_calls(
+    user_id: Optional[str] = None,
+    status: Optional[str] = None,
+    db_path: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """Retrieve scheduled call records filtered by user_id or status."""
+    try:
+        with _get_connection(db_path) as conn:
+            cursor = conn.cursor()
+            query = "SELECT id, user_id, phone_number, scheduled_time, status, attempt_count, last_attempt_at, created_at, updated_at FROM scheduled_calls"
+            params = []
+            conditions = []
+            if user_id:
+                conditions.append("user_id = ?")
+                params.append(user_id)
+            if status:
+                conditions.append("status = ?")
+                params.append(status)
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions)
+            query += " ORDER BY created_at DESC"
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+    except sqlite3.Error as e:
+        logger.error(f"Failed to get scheduled calls: {e}", exc_info=True)
+        return []
+
+
+def update_call_status(
+    call_id: str,
+    status: str,
+    increment_attempt: bool = False,
+    db_path: Optional[str] = None,
+) -> bool:
+    """Update scheduled call status and optionally increment attempt count."""
+    if not call_id:
+        return False
+    now_iso = datetime.now(timezone.utc).isoformat()
+    try:
+        with _get_connection(db_path) as conn:
+            cursor = conn.cursor()
+            if increment_attempt:
+                cursor.execute(
+                    """
+                    UPDATE scheduled_calls
+                    SET status = ?, attempt_count = attempt_count + 1, last_attempt_at = ?, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (status, now_iso, now_iso, call_id),
+                )
+            else:
+                cursor.execute(
+                    """
+                    UPDATE scheduled_calls
+                    SET status = ?, last_attempt_at = ?, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (status, now_iso, now_iso, call_id),
+                )
+            conn.commit()
+            return cursor.rowcount > 0
+    except sqlite3.Error as e:
+        logger.error(
+            f"Failed to update call status for '{call_id}': {e}", exc_info=True
+        )
+        return False
