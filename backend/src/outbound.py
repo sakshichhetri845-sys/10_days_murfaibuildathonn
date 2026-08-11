@@ -170,6 +170,8 @@ async def trigger_outbound_practice(
 
 
 VALID_CALL_OUTCOMES = {
+    "CONNECTED",
+    "IN_PROGRESS",
     "COMPLETED",
     "DECLINED",
     "BUSY",

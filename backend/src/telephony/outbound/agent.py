@@ -167,9 +167,8 @@ class BolBuddyOutboundAgent(Agent):
         )
         return res
 
-    @function_tool
-    async def detected_answering_machine(self, context: RunContext) -> str:
-        """Hang up cleanly when voicemail or answering machine is detected."""
+    async def detected_answering_machine(self) -> str:
+        """Internal helper to log voicemail and hang up when an automated machine is detected."""
         logger.info("Answering machine detected — hanging up and recording outcome")
         call_id = getattr(self.ctx.proc, "userdata", {}).get("call_id", self.ctx.room.name)
         record_call_outcome(call_id, "VOICEMAIL")
@@ -182,7 +181,7 @@ class BolBuddyOutboundAgent(Agent):
         context: RunContext,
         reason: str = "DECLINED",
     ) -> str:
-        """End the outbound call session cleanly after user declines or asks to disconnect."""
+        """End the outbound call session cleanly ONLY when the learner explicitly says goodbye, declines to practice, or requests to disconnect."""
         logger.info(f"TOOL CALL: end_call (reason='{reason}')")
         call_id = getattr(self.ctx.proc, "userdata", {}).get("call_id", self.ctx.room.name)
         record_call_outcome(call_id, reason.upper())
