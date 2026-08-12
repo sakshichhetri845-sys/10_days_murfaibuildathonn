@@ -1,298 +1,247 @@
-# Voice Agent Starter — Powered by Murf Falcon
+# BolBuddy — Voice-First AI Companion for Spoken English & Viva Prep
 
-Build a production voice AI agent in 5 minutes. Powered by the fastest TTS on the market - swap the system prompt to build anything from customer support to language tutors.
+**BolBuddy** is a production-grade, real-time voice AI agent designed to help learners practice spoken English, prepare for job interviews and viva exams, track speaking progress over time, receive scheduled daily phone calls, and connect with human mentors when assistance is required.
+
+Powered by **LiveKit Agents SDK**, **Murf Falcon TTS** (Anisha Indian English voice), **Deepgram Nova-3 Multilingual STT**, and **Gemini / OpenRouter LLMs**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Murf Falcon](https://img.shields.io/badge/TTS-Murf%20Falcon-6366F1)](https://murf.ai/api/docs/text-to-speech/streaming) [![LiveKit](https://img.shields.io/badge/Transport-LiveKit-002cf2)](https://docs.livekit.io) [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 
 ---
 
-## Why Murf Falcon
+## 🌟 Key Features & Capabilities
 
-- **55ms model latency** - fastest production TTS
-- **130ms time-to-first-audio** across 10+ global regions
-- **$0.01/1000 characters** - up to 10x cheaper than alternatives
-- **150+ voices** across 35+ languages
-- **99.38% pronunciation accuracy**
+- 🎙️ **Real-Time Duplex Audio Streaming**: Instant voice-to-voice interaction using Murf Falcon TTS (55ms latency) and Deepgram Nova-3 Multilingual STT (supporting English, Hindi, and Hinglish).
+- 🧠 **Persistent User Memory & Context**: SQLite disk-backed user memory (`bolbuddy_memory.db`) storing learner names, learning goals, preferred topics, and past practice history.
+- 📚 **RAG & Learning Resources**: In-memory RAG search engine (`search_learning_resources`) providing instant grammar explanations, viva tips, and sample interview responses.
+- 📊 **Structured Practice & Answer Scoring**: Speaking exercises tool (`fetch_next_exercise`) and automated spoken answer evaluation (`score_spoken_answer`) returning structured scores (1-10), strengths, and improvements.
+- 📞 **Outbound Telephony & Daily Call Scheduler**: Scheduled automated practice calls to learner phone numbers via Linphone SIP trunk (`OUTBOUND_CALL_ENABLED`).
+- 🚨 **Human Escalation & Discord Delivery (Day 7)**: Detects learner distress or human teacher requests, asks explicit permission, scrubs PII, dispatches real-time notifications to a **Discord Webhook channel**, and displays tickets in an internal **Human Help Dashboard UI**.
 
 ---
 
-## Architecture
+## 🏗 System Architecture
 
 ```mermaid
-flowchart LR
-    A[🎙️ User speaks] -->|audio| B[Deepgram STT]
-    B -->|text| C[LLM]
-    C -->|response text| D[Murf Falcon TTS]
-    D -->|audio| E[LiveKit]
-    E -->|stream| F[🔊 User hears]
+flowchart TD
+    subgraph Client ["Client Layer"]
+        A[🎙️ User Audio / Phone Call] -->|RTC Stream / SIP| B[LiveKit Cloud / SIP Trunk]
+        C[🖥️ Next.js Web UI] <-->|Token API / Escalations| D[Next.js App Server]
+    end
 
-    style A fill:#444441,stroke:#888780,color:#fff
-    style B fill:#185FA5,stroke:#85B7EB,color:#fff
-    style C fill:#534AB7,stroke:#AFA9EC,color:#fff
-    style D fill:#0F6E56,stroke:#5DCAA5,color:#fff
-    style E fill:#D85A30,stroke:#F0997B,color:#fff
-    style F fill:#444441,stroke:#888780,color:#fff
+    subgraph Backend ["BolBuddy Voice Engine"]
+        B <-->|Duplex Audio| E[LiveKit Agents SDK]
+        E -->|STT| F[Deepgram Nova-3 STT]
+        F -->|Transcribed Text| G[LLM Engine - Gemini / OpenRouter]
+        G -->|Tool Execution| H[Function Tools]
+        H -->|Memory / RAG| I[(SQLite DB & Memory Cache)]
+        H -->|Human Escalation| J[Discord Webhook Dispatcher]
+        G -->|Response Text| K[Murf Falcon TTS - Anisha Voice]
+        K -->|Audio Stream| E
+    end
+
+    subgraph Channels ["Human Escalation Channels"]
+        J -->|POST Sanitized JSON| L[🚨 Discord Webhook Channel]
+        D <-->|Fetch / Update Status| M[📋 Human Help UI Dashboard]
+    end
+
+    style A fill:#334155,stroke:#64748B,color:#fff
+    style B fill:#1E293B,stroke:#475569,color:#fff
+    style C fill:#0F172A,stroke:#334155,color:#fff
+    style G fill:#4338CA,stroke:#6366F1,color:#fff
+    style K fill:#047857,stroke:#10B981,color:#fff
+    style L fill:#B45309,stroke:#F59E0B,color:#fff
+    style M fill:#6D28D9,stroke:#8B5CF6,color:#fff
 ```
 
 ---
 
-## Quickstart
+## 🗓 7 Days Progress (#VoiceForBharat Challenge)
+
+| Day | Focus Area | Key Deliverables & Code |
+| :---: | :--- | :--- |
+| **[Day 1](./day_1/README.md)** | Basic Voice Agent Pipeline | Real-time duplex audio streaming using LiveKit Agents, Deepgram Nova-3 STT, and Murf Falcon TTS. |
+| **[Day 2](./day_2/README.md)** | Personality & Safety Guardrails | BolBuddy Indian English companion persona, short conversational style, and safety guardrails. |
+| **[Day 3](./day_3/README.md)** | Voice UI & Web Interface | Next.js 15 web interface with animated voice orb visualizer, mic controls, and live transcript view. |
+| **[Day 4](./day_4/README.md)** | Persistent Memory & RAG | SQLite disk-backed user memory (`bolbuddy_memory.db`), consent-based saving, verbal confirmation before deletion, and RAG resource lookup. |
+| **[Day 5](./day_5/README.md)** | Structured Tools & Evaluation | Function tools (`fetch_next_exercise` & `score_spoken_answer`), curated exercise dataset, single-turn LLM response, zero tool syntax leakage, and multi-tier LLM failover. |
+| **[Day 6](./day6/README.md)** | Outbound Telephony & Scheduling | Scheduled daily practice calls at learner-selected times via LiveKit SIP Outbound Trunk (Linphone SIP), deterministic state machine, 3-part opening, and short spoken practice. |
+| **[Day 7](./day_7/README.md)** | Human Escalation & Discord Channel | Learner distress & teacher request detection, 7-step consent protocol, Discord webhook channel delivery (`DISCORD_ESCALATION_WEBHOOK_URL`), PII scrubbing, and internal Human Help dashboard UI. |
+
+---
+
+## 🚨 Day 7 Feature Spotlight: Human Escalation & Discord Channel
+
+BolBuddy knows its boundaries and recognizes when a learner needs real human help:
+
+### 1. Escalation Triggers
+- **Learner Distress**: Learner expresses severe anxiety, frustration, or inability to continue practicing.
+- **Human Teacher Request**: Learner explicitly requests to talk to a real human teacher, coach, or English tutor.
+
+### 2. 7-Step Protocol
+1. **Detect**: Identifies distress or teacher request without invoking tools prematurely.
+2. **Ask Permission**: Speaks a clean, friendly question (*"I can send your concern, language, and preferred follow-up method to our human support team. Is that okay?"*).
+3. **Consent YES**: Executes `create_escalation` silently in the backend.
+4. **Consent NO**: Respects the learner's decision, creates no ticket, and continues conversation.
+5. **PII Sanitization**: Automatically redacts passwords, OTPs, PINs, and bank details.
+6. **Discord Webhook POST**: Dispatches formatted payload to `DISCORD_ESCALATION_WEBHOOK_URL`.
+7. **Learner Confirmation**: Speaks honest next step (*"Your support request has been initialized. Your reference ID is ESC-XXXX. A human teacher will review your request and contact you within 24 hours."*).
+
+### 3. Real Discord Notification Sample
+```text
+🚨 New BolBuddy Human Help Request
+
+Reference ID: ESC-1042
+Reason: Human Teacher Request
+Urgency: Medium
+Language: English
+Learner: Sakshyam
+Preferred Follow-up: Voice call
+
+Summary:
+Learner requested one-on-one help from a human English teacher.
+
+What BolBuddy Already Checked:
+Normal practice guidance was provided before escalation.
+
+Status: OPEN
+```
+
+---
+
+## 🚀 Quickstart & Setup Guide
 
 ### Prerequisites
+- **Python 3.10+** & **[uv](https://docs.astral.sh/uv/)** package manager
+- **Node.js 18+** & **pnpm** package manager
+- LiveKit Cloud account & Murf API key
 
-- **Python** 3.10+
-- **[uv](https://docs.astral.sh/uv/)** - fast Python package manager
-  ```bash
-  # macOS/Linux
-  curl -LsSf https://astral.sh/uv/install.sh | sh
-  # Windows (PowerShell)
-  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-  ```
-- **Node.js** 18+
-- **pnpm** — fast Node package manager
-  ```bash
-  npm install -g pnpm
-  ```
-- A [LiveKit](https://cloud.livekit.io/) project (free tier available)
-
-### Step 1: Clone the repo
-
+### 1. Clone Repository
 ```bash
-git clone https://github.com/murf-ai/murf-livekit-starter.git
+git clone https://github.com/sakshyambhttr-cyber/10_days_voice_agent.git
 cd murf-livekit-starter
 ```
 
-### Step 2: Set up environment variables
+### 2. Configure Environment Variables
+Create `.env.local` in `backend/` and `frontend/`:
 
-Create `.env.local` in both `backend/` and `frontend/` (copy from `.env.example` in each). You need:
+```ini
+# LiveKit Cloud Credentials
+LIVEKIT_URL=wss://your-project.livekit.cloud
+LIVEKIT_API_KEY=your_api_key
+LIVEKIT_API_SECRET=your_api_secret
 
-| Variable                               | Where to get it                                        | Required |
-| -------------------------------------- | ------------------------------------------------------ | -------- |
-| `LIVEKIT_URL`                          | LiveKit Cloud dashboard                                | Yes      |
-| `LIVEKIT_API_KEY`                      | LiveKit Cloud dashboard                                | Yes      |
-| `LIVEKIT_API_SECRET`                   | LiveKit Cloud dashboard                                | Yes      |
-| `MURF_API_KEY`                         | [murf.ai/api/dashboard](https://murf.ai/api/dashboard) | Yes      |
-| `DEEPGRAM_API_KEY`                     | [deepgram.com](https://deepgram.com)                   | Yes      |
-| `GOOGLE_API_KEY` (or `OPENAI_API_KEY`) | Depends on LLM choice                                  | Yes      |
+# AI API Keys
+MURF_API_KEY=your_murf_key
+DEEPGRAM_API_KEY=your_deepgram_key
+GOOGLE_API_KEY=your_google_gemini_key
+OPENROUTER_API_KEY=your_openrouter_key
 
-### Step 3: Install backend dependencies
+# Day 7 Human Escalation Discord Webhook
+DISCORD_ESCALATION_WEBHOOK_URL=https://discord.com/api/webhooks/your_webhook_url
+
+# Day 6 Outbound Telephony (Linphone SIP)
+LIVEKIT_SIP_OUTBOUND_TRUNK_ID=your_trunk_id
+LINPHONE_USERNAME=your_linphone_user
+LINPHONE_PASSWORD=your_linphone_pass
+LINPHONE_DOMAIN=sip.linphone.org
+OUTBOUND_CALL_ENABLED=true
+```
+
+### 3. Install & Run Application
+
+**Option A — All-in-One Startup Script (Recommended):**
+```powershell
+# Windows PowerShell
+.\start_app.ps1
+
+# macOS / Linux
+chmod +x start_app.sh
+./start_app.sh
+```
+
+**Option B — Separate Terminals:**
+```bash
+# Terminal 1: Backend Agent
+cd backend
+uv sync
+uv run python src/agent.py dev
+
+# Terminal 2: Next.js Frontend
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Open **http://localhost:3000** in your browser, click **Talk to BolBuddy**, allow microphone permissions, and start practicing!
+
+---
+
+## 🧪 Automated Testing & Code Quality
+
+BolBuddy features a comprehensive automated test suite including unit tests, API tests, and LLM-as-judge evaluation tests.
 
 ```bash
 cd backend
-uv sync
-uv run python src/agent.py download-files
+uv run pytest
 ```
 
-### Step 4: Install frontend dependencies
+```text
+============================= test session starts =============================
+collected 133 items
 
-```bash
-cd frontend
-pnpm install
+test_keys.py ...                                                         [  2%]
+tests/test_agent.py .....                                                [  6%]
+tests/test_async_memory.py .....                                         [  9%]
+tests/test_call_outcomes.py .........                                    [ 16%]
+tests/test_consent.py ......                                             [ 21%]
+tests/test_day4_two_calls.py .                                           [ 21%]
+tests/test_escalation.py ........                                        [ 27%]
+tests/test_exercise_tool.py .......                                      [ 33%]
+tests/test_final_integration.py ..                                       [ 34%]
+...
+=========================== 133 passed in 167.32s ===========================
 ```
 
-### Step 5: Run it
-
-**Option A - All-in-one (from repo root):**
-
-```bash
-# macOS/Linux
-chmod +x start_app.sh
-./start_app.sh
-
-# Windows (PowerShell)
-.\start_app.ps1
-```
-
-**Option B - Separate terminals:**
-
-```bash
-# Terminal 1 — LiveKit Server
-livekit-server --dev
-
-# Terminal 2 — Backend agent
-cd backend && uv run python src/agent.py dev
-
-# Terminal 3 — Frontend
-cd frontend && pnpm dev
-```
-
-Then open **http://localhost:3000** in your browser.
-
-You should now see the voice agent UI. Click **Start talking**, allow microphone access, and speak — the agent will respond with Murf Falcon TTS. Ensure your backend and (if using Option B) LiveKit server are running.
+- **Ruff Python Linting**: `uv run ruff check src/ tests/` → `All checks passed!`
+- **Frontend ESLint & Prettier**: `pnpm lint` & `pnpm format` → Passed cleanly.
 
 ---
 
-## Deploy
+## 📄 Repository Structure
 
-Want to deploy this beyond localhost? You'll need to deploy **two services**: the backend agent and the frontend. Both must use the same LiveKit project.
-
-> This is a two-service app — the backend agent and the frontend UI deploy separately. You'll need both running and connected to the same LiveKit project.
-
-### Backend (Python agent) — Deploy to Railway
-
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/tIVCF1?referralCode=cNjn2P&utm_medium=integration&utm_source=template&utm_campaign=generic)
-
-Set these environment variables in Railway:
-
-- `MURF_API_KEY`
-- `DEEPGRAM_API_KEY`
-- `GOOGLE_API_KEY` or `OPENAI_API_KEY`
-- `LIVEKIT_URL`
-- `LIVEKIT_API_KEY`
-- `LIVEKIT_API_SECRET`
-
-The backend runs as a long-lived Python process that connects to LiveKit as an agent. Railway handles this well.
-
-### Frontend (Next.js) — Deploy to Vercel
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/murf-ai/murf-livekit-starter&root-directory=frontend&env=LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET&project-name=murf-voice-agent&repository-name=murf-voice-agent)
-
-Set these environment variables in Vercel:
-
-- `LIVEKIT_URL`
-- `LIVEKIT_API_KEY`
-- `LIVEKIT_API_SECRET`
-- `AGENT_NAME` (optional — for explicit agent dispatch)
-
-The frontend is a standard Next.js app. Point it at the same LiveKit instance your backend agent is connected to.
-
-### Connecting them
-
-The frontend and backend don't call each other directly — they both connect to **LiveKit**, which handles the real-time audio transport.
-
-1. Use the **same** `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` on both Railway and Vercel
-2. Set `AGENT_NAME=my-agent` on Vercel — this matches the `agent_name="my-agent"` registered in `backend/src/agent.py`
-3. Verify: Railway logs should show the agent connected to LiveKit. Open your Vercel URL, click **Start talking** — the agent should respond
-
-If the agent doesn't connect, double-check that both services point to the same LiveKit project and that the backend is running (check Railway logs).
-
----
-
-## Change the Use Case
-
-The default system prompt makes this a **customer support agent**. You can change the agent’s behavior by editing the prompt.
-
-**Where the prompt lives:** `backend/src/agent.py`- the `SYSTEM_PROMPT` constant (near the top of the file, after the imports). Change that string to change what your voice agent does.
-
-### Example prompts (copy-paste)
-
-**Customer Support (default):**
-
-```
-You are a friendly and efficient customer support agent for a tech company. Help users with account issues, billing questions, and product troubleshooting. Be concise, empathetic, and solution-oriented. If you don't know something, say so honestly and offer to escalate.
-```
-
-**Language Tutor:**
-
-```
-You are a patient and encouraging language tutor helping the user practice conversational Spanish. Speak primarily in Spanish but switch to English to explain grammar or vocabulary when needed. Correct mistakes gently and suggest better phrasing. Keep conversations natural and fun.
-```
-
-**AI Receptionist:**
-
-```
-You are a professional receptionist for a medical clinic. Help callers schedule appointments, answer questions about office hours and services, and take messages for doctors. Be warm but efficient. Ask for the caller's name and reason for calling upfront.
-```
-
-See the Configuration section below for voice, STT, and LLM options.
-
----
-
-## Configuration
-
-### Murf voice
-
-Edit the `tts=murf.TTS(...)` call in `backend/src/agent.py`. Set the `voice` argument to any Murf voice ID. Examples:
-
-- `Anisha` — Indian English (female, default in this starter)
-- `Pooja` — Indian English (female)
-- `Samar` — Indian English (male)
-- `Amara` — US English (female)
-- `Gordon` — US English (male)
-- `Hazel` — UK English (female)
-- `Bertie` — UK English (male)
-
-Browse all voices: [Murf Voice Library](https://murf.ai/api/docs/voices-styles/voice-library).
-
-### STT provider
-
-STT is configured in `backend/src/agent.py` in the `AgentSession(stt=...)` call. The default is Deepgram (`deepgram.STT(model="nova-3")`). You can swap to another LiveKit-compatible STT plugin if needed.
-
-### LLM (Gemini vs OpenAI)
-
-- **Gemini (default):** Set `GOOGLE_API_KEY` and use `llm=google.LLM(model="gemini-3.5-flash-lite")` in `agent.py`.
-- **OpenAI:** Set `OPENAI_API_KEY`, add the OpenAI plugin, and use the corresponding `llm=openai.LLM(...)` in `agent.py`.
-
-### Audio format
-
-Murf Falcon and LiveKit handle audio format internally. For advanced options, see [Murf API docs](https://murf.ai/api/docs) and [LiveKit docs](https://docs.livekit.io).
-
----
-
-## Project Structure
-
-```
+```text
 murf-livekit-starter/
 ├── backend/                 # Python voice agent (LiveKit Agents + Murf Falcon)
 │   ├── src/
-│   │   └── agent.py         # Agent entrypoint, pipeline (STT/LLM/TTS), system prompt
-│   ├── tests/               # Agent tests
-│   ├── .env.example         # Backend env template
-│   ├── pyproject.toml       # Python deps (uv)
-│   └── railway.toml         # Railway deploy config
-├── frontend/                # Next.js UI for voice sessions
-│   ├── app/
-│   │   ├── page.tsx         # Main page
-│   │   └── api/token/       # LiveKit token endpoint (dev)
-│   ├── components/          # UI (agents-ui, app config, theme)
-│   ├── app-config.ts        # Branding, title, button text, accent
-│   ├── .env.example         # Frontend env template
-│   └── package.json         # Node deps (pnpm)
-├── start_app.sh             # Start LiveKit + backend + frontend (macOS/Linux)
-├── start_app.ps1            # Start LiveKit + backend + frontend (Windows)
-├── README.md                # This file
+│   │   ├── agent.py         # Primary voice pipeline entrypoint & function tools
+│   │   ├── escalation_tools.py # Human escalation, PII scrubbing, Discord webhook
+│   │   ├── db.py            # SQLite database schema (memory & escalations)
+│   │   ├── memory_tools.py  # User context memory & consent handlers
+│   │   ├── outbound_agent.py# Outbound telephony SIP call agent
+│   │   └── prompts/         # System prompts and persona definitions
+│   ├── tests/               # 133 automated pytest unit & LLM evaluation tests
+│   └── pyproject.toml       # Python dependencies (uv)
+├── frontend/                # Next.js 15 UI for voice interaction
+│   ├── app/                 # Next.js pages and API routes (/api/token, /api/escalations)
+│   ├── components/          # UI components (agents-ui, bolbuddy-session-view, escalations-drawer)
+│   └── package.json         # Node dependencies (pnpm)
+├── day_1/ ... day_7/        # Progress snapshots & documentation for each day
+├── start_app.ps1            # Windows all-in-one launcher script
+├── start_app.sh             # Linux/macOS all-in-one launcher script
+└── README.md                # Main repository documentation
 ```
 
-For deeper documentation on each part, see:
-
-- [Backend Documentation](./backend/README.md) — agent pipeline, voice/LLM/STT configuration, testing, deployment
-- [Frontend Documentation](./frontend/README.md) — UI customization, visualizers, theming, component architecture
-
 ---
 
-## 10 Days Progress (#VoiceForBharat Challenge)
+## 🔗 Useful Links & References
 
-| Day | Focus | Status |
-|---|---|---|
-| 1 | Basic Voice Agent Pipeline | Completed |
-| 2 | Personality & Safety Guardrails | Completed |
-| 3 | Voice UI & Web Interface | Completed |
-| 4 | Persistent Memory & RAG | Completed |
-| 5 | Tools / real data | Completed |
-| 6 | Outbound practice calls | Completed |
-
-- **[Day 1 — Basic Voice Agent Pipeline](./day_1/README.md)**: Real-time duplex audio streaming using LiveKit, Deepgram STT, and Murf Falcon TTS.
-- **[Day 2 — Personality & Safety Guardrails](./day_2/README.md)**: BolBuddy Indian English companion persona, short response style, and safety guardrails.
-- **[Day 3 — Voice UI & Web Interface](./day_3/README.md)**: Next.js frontend UI with animated orb visualizer, session controls, and live conversation transcript view.
-- **[Day 4 — Persistent Memory & RAG](./day_4/README.md)**: SQLite disk-backed user memory (`bolbuddy_memory.db`), consent-based saving, verbal confirmation before deletion, and RAG resource lookup.
-- **[Day 5 — The Tools](./day_5/README.md)**: Dynamic structured function tools (`fetch_next_exercise` & `score_spoken_answer`), curated local exercise dataset, single-turn LLM response, zero tool syntax leakage, and multi-tier LLM failover pool.
-- **[Day 6 — Outbound Calls](./day6/README.md)**: Daily practice calls at learner-selected times via LiveKit SIP Outbound Trunk, deterministic state machine, 3-part opening, and short spoken practice.
-
----
-
-## Links
-
-- [Murf API Docs](https://murf.ai/api/docs)
+- [Murf Falcon TTS API](https://murf.ai/api/docs/text-to-speech/streaming)
 - [Murf Voice Library](https://murf.ai/api/docs/voices-styles/voice-library)
-- [LiveKit Docs](https://docs.livekit.io)
-- [Deepgram Docs](https://developers.deepgram.com)
-- [Murf Falcon Benchmarks](https://murf.ai/falcon/benchmarks)
-- [TTS Latency Benchmarker](https://github.com/sahilsgupta/tts-latency-benchmarker) — run your own p50/p95 tests across providers
-- [Murf Discord](https://discord.gg/FbKAy96Sz7)
-- [Murf Startup Incubator](https://murf.ai/api) — 50M free characters for startups
+- [LiveKit Agents SDK](https://docs.livekit.io/agents)
+- [Deepgram STT Documentation](https://developers.deepgram.com)
 
 ---
 
-## License
+## 📜 License
 
-MIT
+This project is licensed under the **MIT License**.
