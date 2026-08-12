@@ -1,7 +1,7 @@
 """
-Schedule Model Module for BolBuddy Voice Agent.
+Schedule Model Module for HealthSathi Voice Agent.
 
-Manages persistent daily practice call schedules in SQLite (bolbuddy_memory.db).
+Manages persistent daily health call schedules in SQLite (healthsathi_memory.db).
 Handles time parsing, timezone calculations, phone validation, and CRUD actions.
 """
 

@@ -1,156 +1,50 @@
-# README_PROMPT_ARCHITECTURE.md
+# README_PROMPT_ARCHITECTURE.md — HealthSathi Prompt System
 
 ## Prompt Architecture
 
-BolBuddy's system prompt is intentionally divided into small, focused modules rather than one large prompt.
+HealthSathi's system prompt is intentionally divided into small, focused Python modules in `backend/src/prompts/` rather than one monolithic text file.
 
-Each module has a single responsibility.
+Each module has a single, clear responsibility. This makes the prompt easy to audit, test, and maintain across all 7 Days of Voice Agents requirements.
 
-This makes the prompt easier to understand, maintain, test, and extend as new capabilities are added throughout the Voice for Bharat challenge.
-
-The complete system prompt is assembled inside `system_prompt.py`.
+The complete system prompt is dynamically assembled in `backend/src/prompts/system_prompt.py`.
 
 ---
 
-## Prompt Modules
+## Modular Architecture
 
-### identity.py
+### 1. `identity.py`
+Defines who HealthSathi is: a friendly, voice-first health access companion. Establishes core purpose (helping users navigate non-emergency health questions) and explicitly states that HealthSathi is not a doctor.
 
-Defines who BolBuddy is, who it serves, its purpose, personality, and long-term mission.
+### 2. `objectives.py`
+Defines conversation goals: symptom-to-triage classification, facility guidance, medication reminder management, and human escalation when needed.
 
-Whenever the identity or purpose of the assistant changes, update this module.
+### 3. `knowledge.py`
+Defines domain knowledge boundaries: general wellness, basic triage criteria, prep for doctor visits, emergency warning signs. Explicitly forbids inventing medical facts or claiming medical certainty.
 
----
+### 4. `language.py`
+Defines voice-first multilingual communication in English, Hindi, and Hinglish/code-mixed speech for natural Indian voice interactions.
 
-### objectives.py
+### 5. `guardrails.py`
+Defines non-negotiable safety rules:
+- **No Medical Diagnosis**: Never say "You have [disease]".
+- **No Prescriptions**: Never recommend prescription medications or dosages.
+- **Emergency Priority**: Immediately direct red-flag symptoms (chest pain, breathing difficulty, stroke) to emergency services (**112**) or nearest hospital.
+- **Explicit Consent**: Require user consent before calling `create_escalation` or `save_user_memory`.
+- **Privacy Protection**: Never request or persist passwords, OTPs, PINs, or credit card numbers.
 
-Defines what successful conversations should achieve.
+### 6. `style.py`
+Defines conversational style: calm, empathetic, concise (1-2 sentences), non-judgmental, and one question at a time.
 
-Focuses on conversation goals rather than implementation.
+### 7. `greeting.py`
+Defines warm initial greetings for new and returning users, framing HealthSathi as a helpful voice companion.
 
-Update this module whenever new learning objectives or success criteria are introduced.
-
----
-
-### knowledge.py
-
-Defines what BolBuddy knows, where its expertise begins, and where it ends.
-
-It establishes the assistant's domain knowledge while preventing it from acting outside its intended role.
-
----
-
-### language.py
-
-Defines how BolBuddy communicates.
-
-Includes multilingual behavior, code-mixed conversations, language adaptation, voice-first communication, and conversational tone.
-
-Future multilingual improvements should belong here.
+### 8. `conversation_principles.py` & `decision_hierarchy.py`
+Guides response priorities: Safety & Emergency > Human Escalation > Triage & Guidance > Preference Saving.
 
 ---
 
-### guardrails.py
+## Key Safety Rules
 
-Defines safety boundaries.
-
-Specifies what BolBuddy must refuse, what it must never claim, ethical behavior, learner protection, escalation behavior, and domain limitations.
-
-All future safety-related rules belong here.
-
----
-
-### style.py
-
-Defines BolBuddy's conversational personality.
-
-Includes pacing, sentence length, correction style, emotional intelligence, encouragement strategy, and overall speaking style.
-
-Future personality refinements should be made here.
-
----
-
-### greeting.py
-
-Defines the first interaction with the learner.
-
-Contains welcome messages and first-turn behavior.
-
----
-
-### conversation_principles.py
-
-Contains timeless conversational principles that guide every interaction.
-
-These principles remain stable even as new features are added.
-
-They define how BolBuddy approaches conversations rather than specific functionality.
-
----
-
-### decision_hierarchy.py
-
-Defines the priority order BolBuddy should follow whenever multiple instructions or behaviors could apply.
-
-Acts as the assistant's internal decision-making framework.
-
----
-
-## Design Principles
-
-The architecture follows several core principles:
-
-* One responsibility per module.
-* Favor clarity over complexity.
-* Keep prompts modular and reusable.
-* Voice-first design before text-first design.
-* Conversation before instruction.
-* Confidence before perfection.
-* Practice before explanation.
-* Safety before capability.
-
----
-
-## Future Expansion
-
-As BolBuddy evolves, new capabilities should be added by extending existing modules whenever appropriate.
-
-Examples include:
-
-* Memory
-* Personalization
-* Pronunciation feedback
-* Progress tracking
-* Vocabulary reinforcement
-* Conversation history
-* Adaptive difficulty
-* Role-play scenarios
-* Tool usage
-* External knowledge
-* Retrieval systems
-
-Avoid creating large monolithic prompts.
-
-Instead, preserve modularity by expanding the most relevant prompt module or creating a new focused module only when a completely new responsibility is introduced.
-
----
-
-## Philosophy
-
-BolBuddy is not designed to be an English teacher.
-
-It is designed to be an AI speaking companion.
-
-Every design decision should support one central mission:
-
-**Help learners become confident English speakers through natural conversations—not lessons.**
-
----
-
-## Token Efficiency & TPM Optimization
-
-To prevent Groq Tokens-Per-Minute (TPM) rate limit issues:
-- System prompt is ultra-compact (~380 tokens runtime overhead).
-- Non-runtime guidelines and design principles are documented here in `README_PROMPT_ARCHITECTURE.md` rather than sent to the LLM context.
-- Function tools use concise docstrings with explicit trigger conditions.
-- Context history is automatically pruned to keep runtime tokens within safe limits.
+1. **Non-Diagnostic Policy**: HealthSathi uses coarse triage levels (`self_care`, `routine`, `soon`, `urgent`) to suggest next steps without giving a formal medical diagnosis.
+2. **Consent-First Escalation**: Human support requests (`create_escalation`) are only created after explaining what data is shared and obtaining explicit verbal consent ("Yes").
+3. **Emergency Red-Flag Handling**: Severe symptoms bypass routine chit-chat to recommend urgent emergency evaluation.

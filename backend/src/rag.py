@@ -1,7 +1,7 @@
 """
-Lightweight RAG (Retrieval-Augmented Generation) module for BolBuddy Voice Agent.
+Lightweight RAG (Retrieval-Augmented Generation) module for HealthSathi Voice Agent.
 
-Provides zero-dependency document retrieval over curated learning materials in backend/knowledge/.
+Provides zero-dependency document retrieval over health guidance materials in backend/knowledge/.
 """
 
 import os
@@ -80,11 +80,11 @@ def _load_knowledge_docs(
     return docs
 
 
-def query_learning_resources(
+def query_health_resources(
     query: str, knowledge_dir: Optional[str] = None, threshold: float = 1.0
 ) -> Optional[dict[str, Any]]:
     """
-    Search knowledge base documents using TF-IDF term weighting and title alignment.
+    Search health guidance documents using term weighting and title alignment.
 
     Returns the top matching document dict if similarity >= threshold, else None.
     """
@@ -113,7 +113,7 @@ def query_learning_resources(
         score = 0.0
         for token in meaningful_query_tokens:
             if token in title_lower:
-                score += 3.0  # Strong boost for title matches (e.g. 'pronunciation', 'grammar', 'interview', 'viva')
+                score += 3.0
             elif token in doc_content_lower:
                 count = doc_content_lower.count(token)
                 score += min(count, 5) * 0.5
@@ -133,21 +133,23 @@ def query_learning_resources(
     return None
 
 
+def query_learning_resources(
+    query: str, knowledge_dir: Optional[str] = None, threshold: float = 1.0
+) -> Optional[dict[str, Any]]:
+    """Backward compatible alias for query_health_resources."""
+    return query_health_resources(query, knowledge_dir=knowledge_dir, threshold=threshold)
+
+
 @function_tool
-async def search_learning_resources(
+async def search_health_resources(
     context: RunContext,
     query: str,
 ) -> str:
-    """Search English learning resources for grammar rules, viva tips, or interview prep.
-    WHEN TO USE: ONLY for explicit learning or prep questions (e.g. 'How do I prepare for a viva?').
-    WHEN NOT TO USE: For general greetings, small talk, or everyday chat.
-    INPUT: Specific query string.
-    RETURNS: Concise knowledge snippet or no resource message.
-    """
-    match = query_learning_resources(query)
+    """Search health information resources for symptom guidance, doctor visit prep, or general wellness advice."""
+    match = query_health_resources(query)
     if not match:
-        return "No relevant learning resource found."
+        return "No relevant health guidance document found."
 
-    # Return concise content snippet to preserve Groq TPM limits
-    content_snippet = match["content"][:250]
-    return f"Retrieved Knowledge ({match['title']}):\n{content_snippet}"
+    return f"Information from {match['title']}:\n{match['content'][:600]}"
+
+

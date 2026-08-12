@@ -1,8 +1,8 @@
 """
-BolBuddy Outbound Telephony Agent — Day 6 Voice Agent.
+HealthSathi Outbound Telephony Agent.
 
-Initiates daily English practice calls at the learner's chosen time.
-Integrates BolBuddy's complete voice pipeline:
+Initiates daily health reminder calls at the user's chosen time.
+Integrates HealthSathi's complete voice pipeline:
 - Deepgram Nova-3 Multilingual STT (en + hi + hinglish)
 - Primary NVIDIA LLM (with Google Gemini fallback)
 - Murf Falcon TTS (voice="Anisha")
@@ -40,7 +40,6 @@ sys.path.append(
 )
 
 from db import get_user, init_db
-from exercises import get_next_exercise as fn_get_next_exercise
 from memory_tools import (
     async_prefetch_user_memory,
 )
@@ -58,10 +57,9 @@ from memory_tools import (
 )
 from outbound import record_call_outcome
 from prompts.system_prompt import SYSTEM_PROMPT
-from rag import search_learning_resources as fn_search_learning_resources
-from scoring import score_spoken_answer as fn_score_spoken_answer
+from rag import search_health_resources as fn_search_health_resources
 
-logger = logging.getLogger("bolbuddy.outbound_agent")
+logger = logging.getLogger("healthsathi.outbound_agent")
 load_dotenv(".env.local")
 
 OUTBOUND_TRUNK_ID = (
@@ -71,7 +69,73 @@ OUTBOUND_TRUNK_ID = (
 CALLEE_IDENTITY = "phone-user"
 
 
-class BolBuddyOutboundAgent(Agent):
+# ---------------------------------------------------------------------------
+# Triage levels — intentionally coarse so the agent never over-commits
+# ---------------------------------------------------------------------------
+_TRIAGE_GUIDANCE: dict[str, dict[str, str]] = {
+    "self_care": {
+        "label": "Self-care",
+        "advice": (
+            "This sounds like it can be managed at home with rest, fluids, and over-the-counter "
+            "remedies. Monitor closely — if symptoms worsen or persist beyond 3 days, please "
+            "visit a clinic."
+        ),
+    },
+    "routine": {
+        "label": "Routine care",
+        "advice": (
+            "A visit to a local health post or PHC in the next few days would be helpful. "
+            "There is no immediate emergency, but don't delay too long."
+        ),
+    },
+    "soon": {
+        "label": "See a doctor soon",
+        "advice": (
+            "Please visit a clinic or PHC today or tomorrow. This shouldn't wait more than "
+            "24-48 hours."
+        ),
+    },
+    "urgent": {
+        "label": "Urgent care needed",
+        "advice": (
+            "Please go to the nearest hospital or emergency department as soon as possible, "
+            "or call 112 for emergency services."
+        ),
+    },
+}
+
+# Simple keyword heuristics — the LLM will apply context; this just provides structured output
+_URGENT_KEYWORDS = {
+    "chest pain", "difficulty breathing", "can't breathe", "unconscious",
+    "severe bleeding", "stroke", "heart attack", "seizure", "convulsion",
+    "not breathing", "no pulse",
+}
+_SOON_KEYWORDS = {
+    "high fever", "103", "104", "vomiting blood", "blood in stool",
+    "severe pain", "confusion", "disoriented", "can't walk", "dehydrated",
+}
+_ROUTINE_KEYWORDS = {
+    "fever", "cough", "cold", "rash", "stomach ache", "headache",
+    "diarrhea", "sore throat", "ear pain", "eye pain",
+}
+
+
+def _classify_symptoms(symptoms_text: str) -> str:
+    """Simple keyword-based pre-classifier. Returns triage level string."""
+    lower = symptoms_text.lower()
+    for kw in _URGENT_KEYWORDS:
+        if kw in lower:
+            return "urgent"
+    for kw in _SOON_KEYWORDS:
+        if kw in lower:
+            return "soon"
+    for kw in _ROUTINE_KEYWORDS:
+        if kw in lower:
+            return "routine"
+    return "self_care"
+
+
+class HealthSathiOutboundAgent(Agent):
     def __init__(self, ctx: JobContext) -> None:
         super().__init__(instructions=SYSTEM_PROMPT)
         self.ctx = ctx
@@ -97,13 +161,11 @@ class BolBuddyOutboundAgent(Agent):
         context: RunContext,
         name: str = "",
         language_preference: str = "",
-        level: str = "",
-        learning_goal: str = "",
-        topic_practiced: str = "",
-        recurring_challenge: str = "",
+        reminder_preference: str = "",
+        contact_preference: str = "",
         user_id: str = "",
     ) -> str:
-        """Save user memory facts (name, level, goal, challenge)."""
+        """Save user memory facts (name, language, reminder preference, contact preference)."""
         uid = user_id or getattr(self.ctx.proc, "userdata", {}).get(
             "user_id", "default_user"
         )
@@ -112,10 +174,8 @@ class BolBuddyOutboundAgent(Agent):
             context,
             name=name,
             language_preference=language_preference,
-            level=level,
-            learning_goal=learning_goal,
-            topic_practiced=topic_practiced,
-            recurring_challenge=recurring_challenge,
+            reminder_preference=reminder_preference,
+            contact_preference=contact_preference,
             user_id=uid,
         )
         return res
@@ -148,44 +208,152 @@ class BolBuddyOutboundAgent(Agent):
         return res
 
     @function_tool
-    async def search_learning_resources(
+    async def search_health_resources(
         self,
         context: RunContext,
         query: str = "",
     ) -> str:
-        """Search learning resources for grammar rules, viva tips, or interview prep."""
-        res = await fn_search_learning_resources(context, query=query)
+        """Search health information resources for symptom guidance, doctor visit prep, or general wellness advice."""
+        logger.info(f"TOOL CALL: search_health_resources (query='{query}')")
+        res = await fn_search_health_resources(context, query=query)
+        logger.info("TOOL COMPLETE: search_health_resources")
         return res
 
     @function_tool
-    async def fetch_next_exercise(
+    async def symptom_to_triage(
         self,
         context: RunContext,
-        level: str = "beginner",
-        topic: str = "interview",
+        symptoms: str = "",
+        duration_days: int = 0,
+        severity: str = "mild",
     ) -> str:
-        """Return one speaking exercise for requested level and topic."""
-        res_dict = fn_get_next_exercise(level=level, topic=topic)
-        return json.dumps(res_dict)
+        """
+        Classify the user's reported symptoms into a safe triage level and recommend
+        the appropriate next step.
 
-    @function_tool
-    async def score_spoken_answer(
-        self,
-        context: RunContext,
-        question: str = "",
-        answer: str = "",
-        transcript: str = "",
-        practice_topic: str = "",
-    ) -> str:
-        """Evaluate a completed spoken answer."""
-        res = await fn_score_spoken_answer(
-            context,
-            question=question,
-            answer=answer,
-            transcript=transcript,
-            practice_topic=practice_topic,
+        IMPORTANT RULES:
+        - Do NOT diagnose any medical condition.
+        - Do NOT prescribe or recommend specific medications.
+        - Do NOT claim medical certainty.
+        - Use simple triage levels: self_care, routine, soon, urgent.
+
+        Parameters:
+            symptoms: Free-text description of the user's symptoms.
+            duration_days: How many days the symptoms have been present (0 = unknown).
+            severity: User's self-reported severity — 'mild', 'moderate', or 'severe'.
+        """
+        if not symptoms.strip():
+            return json.dumps(
+                {
+                    "level": "unknown",
+                    "label": "Insufficient information",
+                    "advice": "Please describe your symptoms so I can help you better.",
+                }
+            )
+
+        level = _classify_symptoms(symptoms)
+
+        # Severity and duration adjustments
+        if severity == "severe" and level in ("self_care", "routine"):
+            level = "soon"
+        if severity == "severe" and level == "soon":
+            level = "urgent"
+        if duration_days >= 7 and level == "self_care":
+            level = "routine"
+
+        guidance = _TRIAGE_GUIDANCE[level]
+        result = {
+            "level": level,
+            "label": guidance["label"],
+            "advice": guidance["advice"],
+            "disclaimer": (
+                "HealthSathi is not a doctor. This guidance is for general information only. "
+                "Always consult a qualified healthcare provider for medical decisions."
+            ),
+        }
+        logger.info(
+            f"TOOL CALL: symptom_to_triage → level='{level}' "
+            f"(symptoms='{symptoms[:60]}...', severity='{severity}', days={duration_days})"
         )
-        return res
+        return json.dumps(result, ensure_ascii=False)
+
+    @function_tool
+    async def find_nearby_facility(
+        self,
+        context: RunContext,
+        location: str = "",
+        facility_type: str = "any",
+        urgency: str = "routine",
+    ) -> str:
+        """
+        Find an appropriate nearby health facility based on the user's location.
+        Returns guidance on the type of facility to visit — not real-time GPS lookup.
+
+        Parameters:
+            location: User's area, city, or district (e.g. 'Kathmandu', 'Lalitpur Ward 3').
+            facility_type: Preferred facility type — 'health_post', 'phc', 'clinic', 'hospital', or 'any'.
+            urgency: Triage urgency level — 'self_care', 'routine', 'soon', or 'urgent'.
+        """
+        facility_map = {
+            "self_care": {
+                "recommended": "Local health post or pharmacy",
+                "tip": "For mild symptoms, your nearest health post or community pharmacy can help.",
+            },
+            "routine": {
+                "recommended": "Primary Health Centre (PHC) or community clinic",
+                "tip": "Visit your local PHC or registered clinic. Bring your health card if you have one.",
+            },
+            "soon": {
+                "recommended": "District hospital or specialist clinic",
+                "tip": (
+                    "Please visit a district hospital or specialist clinic today. "
+                    "If possible, call ahead to check wait times."
+                ),
+            },
+            "urgent": {
+                "recommended": "Nearest hospital emergency department",
+                "tip": (
+                    "Go to the nearest hospital emergency immediately, or call 112 for an ambulance. "
+                    "Do not wait."
+                ),
+            },
+        }
+
+        guidance = facility_map.get(urgency, facility_map["routine"])
+        location_note = (
+            f"In or near {location.strip()}: " if location.strip() else ""
+        )
+
+        result = {
+            "location_hint": location.strip() or "your area",
+            "recommended_facility": guidance["recommended"],
+            "tip": f"{location_note}{guidance['tip']}",
+            "emergency_number": "112",
+            "disclaimer": (
+                "HealthSathi cannot verify real-time facility availability. "
+                "Please confirm hours and services directly with the facility."
+            ),
+        }
+        logger.info(
+            f"TOOL CALL: find_nearby_facility "
+            f"(location='{location}', type='{facility_type}', urgency='{urgency}')"
+        )
+        return json.dumps(result, ensure_ascii=False)
+
+    @function_tool
+    async def end_call(
+        self,
+        context: RunContext,
+        reason: str = "DECLINED",
+    ) -> str:
+        """End the outbound call session cleanly ONLY when the user explicitly says goodbye, declines to talk, or requests to disconnect."""
+        logger.info(f"TOOL CALL: end_call (reason='{reason}')")
+        call_id = getattr(self.ctx.proc, "userdata", {}).get(
+            "call_id", self.ctx.room.name
+        )
+        record_call_outcome(call_id, reason.upper())
+        await self._hangup()
+        return f"Call ended gracefully ({reason})."
 
     async def detected_answering_machine(self) -> str:
         """Internal helper to log voicemail and hang up when an automated machine is detected."""
@@ -196,21 +364,6 @@ class BolBuddyOutboundAgent(Agent):
         record_call_outcome(call_id, "VOICEMAIL")
         await self._hangup()
         return "Voicemail detected. Call ended."
-
-    @function_tool
-    async def end_call(
-        self,
-        context: RunContext,
-        reason: str = "DECLINED",
-    ) -> str:
-        """End the outbound call session cleanly ONLY when the learner explicitly says goodbye, declines to practice, or requests to disconnect."""
-        logger.info(f"TOOL CALL: end_call (reason='{reason}')")
-        call_id = getattr(self.ctx.proc, "userdata", {}).get(
-            "call_id", self.ctx.room.name
-        )
-        record_call_outcome(call_id, reason.upper())
-        await self._hangup()
-        return f"Call ended gracefully ({reason})."
 
     async def _hangup(self) -> None:
         """Delete room to drop SIP leg cleanly."""
@@ -388,7 +541,7 @@ async def outbound_agent(ctx: JobContext):
         stt=deepgram.STT(model="nova-3", language="multi", smart_format=True),
         llm=llm,
         tts=murf.TTS(
-            voice="Anisha",
+            voice="Samar",
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=1),
             text_pacing=False,
@@ -423,10 +576,14 @@ async def outbound_agent(ctx: JobContext):
         new_state = getattr(ev, "new_state", "")
         if new_state == "away":
             logger.info(
-                "USER SILENT (8s timeout) -> Auto-generating conversation continuation prompt"
+                "USER SILENT (8s timeout) -> Auto-generating health check-in prompt"
             )
             session.generate_reply(
-                instructions="The learner has been quiet for a few seconds. Gently check in and ask an encouraging question to keep the English practice conversation flowing."
+                instructions=(
+                    "The user has been quiet for a few seconds. "
+                    "Gently check in and ask if they are still there or if there is anything "
+                    "health-related you can help them with."
+                )
             )
 
     @session.on("error")
@@ -437,7 +594,7 @@ async def outbound_agent(ctx: JobContext):
 
     session_started = asyncio.create_task(
         session.start(
-            agent=BolBuddyOutboundAgent(ctx),
+            agent=HealthSathiOutboundAgent(ctx),
             room=ctx.room,
         )
     )
@@ -460,7 +617,7 @@ async def outbound_agent(ctx: JobContext):
     if "@" in clean_sip_number:
         clean_sip_number = clean_sip_number.split("@")[0]
 
-    # Clean phone_number/sip_call_to: LiveKit expects just the phone number or SIP username (e.g. 'sakshyam' or '+977...'), not a full SIP URI.
+    # Clean phone_number/sip_call_to
     clean_call_to = phone_number.strip()
     if clean_call_to.lower().startswith("sip:"):
         clean_call_to = clean_call_to[4:]
@@ -500,17 +657,17 @@ async def outbound_agent(ctx: JobContext):
 
     # Look up user profile name if available
     user_record = get_user(user_id)
-    learner_name = user_name or (user_record.get("name") if user_record else None)
+    user_display_name = user_name or (user_record.get("name") if user_record else None)
 
-    if learner_name:
+    if user_display_name:
         greeting_text = (
-            f"Hi {learner_name}, this is BolBuddy. I'm calling for your English practice session. "
-            f"Is now a good time? If not, you can simply say no and I'll end the call."
+            f"Hi {user_display_name}, this is HealthSathi calling for your daily health check-in. "
+            f"Is now a good time? If not, just say no and I will end the call."
         )
     else:
         greeting_text = (
-            "Hi, this is BolBuddy. I'm calling for your English practice session. "
-            "Is now a good time? If not, you can simply say no and I'll end the call."
+            "Hi, this is HealthSathi calling for your daily health check-in. "
+            "Is now a good time? If not, just say no and I will end the call."
         )
 
     await session.say(_clean_tts_text(greeting_text), allow_interruptions=True)

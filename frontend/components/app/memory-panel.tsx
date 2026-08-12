@@ -10,10 +10,10 @@ import { resetPersistentUserId } from '@/lib/utils';
 export interface UserMemoryData {
   userId?: string;
   name?: string | null;
-  learningGoal?: string | null;
-  topicsPracticed?: string[] | null;
-  lastPracticedTopic?: string | null;
-  currentLevel?: string | null;
+  reminderPreference?: string | null;
+  contactPreference?: string | null;
+  languagePreference?: string | null;
+  interactionPreferences?: string[] | null;
 }
 
 interface MemoryPanelProps {
@@ -70,12 +70,12 @@ export function MemoryPanel({ isOpen, memory, onClose, onMemoryCleared }: Memory
             {/* Drawer Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex size-9 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-teal-100 text-teal-600">
                   <Brain className="size-5" />
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-slate-900">Memory &amp; Privacy</h2>
-                  <p className="text-xs text-slate-500">Manage saved practice details</p>
+                  <p className="text-xs text-slate-500">Manage saved health profile details</p>
                 </div>
               </div>
               <Button
@@ -91,52 +91,60 @@ export function MemoryPanel({ isOpen, memory, onClose, onMemoryCleared }: Memory
             {/* Main Content Body */}
             <div className="mt-6 flex-1 space-y-6 overflow-y-auto pr-1">
               {/* Memory Summary Card */}
-              <div className="space-y-4 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/70 to-purple-50/40 p-4">
+              <div className="space-y-4 rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50/70 to-emerald-50/40 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
-                    <UserCheck className="size-4 text-indigo-600" />
-                    Saved Learning Identity
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-teal-900">
+                    <UserCheck className="size-4 text-teal-600" />
+                    Saved Health Profile
                   </span>
-                  <span className="rounded-full border border-indigo-200 bg-white px-2.5 py-0.5 text-[10px] font-bold text-indigo-700 shadow-2xs">
-                    {hasMemory ? 'Memory Saved' : 'New Learner'}
+                  <span className="rounded-full border border-teal-200 bg-white px-2.5 py-0.5 text-[10px] font-bold text-teal-700 shadow-2xs">
+                    {hasMemory ? 'Profile Saved' : 'New User'}
                   </span>
                 </div>
 
                 {hasMemory ? (
-                  <div className="space-y-2.5 rounded-xl border border-indigo-100 bg-white p-3 text-xs">
+                  <div className="space-y-2.5 rounded-xl border border-teal-100 bg-white p-3 text-xs">
                     {memory?.name && (
                       <div className="flex items-center justify-between text-slate-700">
                         <span className="text-slate-500">Name:</span>
                         <span className="font-bold text-slate-900">{memory.name}</span>
                       </div>
                     )}
-                    {memory?.learningGoal && (
+                    {memory?.languagePreference && (
                       <div className="flex items-center justify-between text-slate-700">
-                        <span className="text-slate-500">Learning Goal:</span>
-                        <span className="font-semibold text-indigo-700 capitalize">
-                          {memory.learningGoal}
+                        <span className="text-slate-500">Language:</span>
+                        <span className="font-semibold text-teal-700 capitalize">
+                          {memory.languagePreference}
                         </span>
                       </div>
                     )}
-                    {memory?.lastPracticedTopic && (
+                    {memory?.reminderPreference && (
                       <div className="flex items-center justify-between text-slate-700">
-                        <span className="text-slate-500">Last Topic:</span>
+                        <span className="text-slate-500">Reminder:</span>
                         <span className="font-medium text-slate-800">
-                          {memory.lastPracticedTopic}
+                          {memory.reminderPreference}
+                        </span>
+                      </div>
+                    )}
+                    {memory?.contactPreference && (
+                      <div className="flex items-center justify-between text-slate-700">
+                        <span className="text-slate-500">Contact:</span>
+                        <span className="font-medium text-slate-800 capitalize">
+                          {memory.contactPreference}
                         </span>
                       </div>
                     )}
                   </div>
                 ) : (
                   <p className="text-xs text-slate-600">
-                    BolBuddy automatically remembers your preferred name and learning goal when you
-                    share them during voice conversation.
+                    HealthSathi remembers your name, language, and health preferences when you share
+                    them during a voice conversation.
                   </p>
                 )}
 
-                <div className="flex items-center gap-2 pt-1 text-[11px] font-medium text-indigo-700">
-                  <Sparkles className="size-3.5 text-indigo-600" />
-                  <span>Ask BolBuddy: &quot;What do you remember about me?&quot;</span>
+                <div className="flex items-center gap-2 pt-1 text-[11px] font-medium text-teal-700">
+                  <Sparkles className="size-3.5 text-teal-600" />
+                  <span>Ask HealthSathi: &quot;What do you remember about me?&quot;</span>
                 </div>
               </div>
 
@@ -159,7 +167,7 @@ export function MemoryPanel({ isOpen, memory, onClose, onMemoryCleared }: Memory
                   Data Control
                 </div>
                 <p className="text-xs text-slate-600">
-                  Permanently delete all saved memory and reset your learning profile.
+                  Permanently delete all saved health memory and reset your health profile.
                 </p>
 
                 <Button

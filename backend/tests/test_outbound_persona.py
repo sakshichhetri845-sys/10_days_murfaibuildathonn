@@ -1,26 +1,21 @@
 """
-Tests for BolBuddy Outbound Persona & Opening Greeting (Phase 4).
+Tests for HealthSathi Outbound Persona & Opening Greeting.
 """
 
 from prompts.system_prompt import SYSTEM_PROMPT
 
 
 def test_outbound_system_prompt_rules():
-    """Verify system prompt includes explicit outbound persona rules."""
-    assert "OUTBOUND CALL RULES" in SYSTEM_PROMPT
-    assert "Want to practice for a few minutes?" in SYSTEM_PROMPT
-    assert "No problem. I'll let you get back to your day. Bye!" in SYSTEM_PROMPT
-    assert "end_call" in SYSTEM_PROMPT
+    """Verify system prompt includes HealthSathi identity and human escalation rules."""
+    assert "HealthSathi" in SYSTEM_PROMPT
+    assert "HUMAN ESCALATION CONSENT RULE" in SYSTEM_PROMPT
 
 
 def test_outbound_opening_greeting_construction():
-    """Verify outbound greeting format satisfies Phase 4 mandatory requirements."""
+    """Verify outbound greeting format satisfies requirements."""
     name = "Sakshyam"
-    outbound_greeting_with_name = f"Hi {name}, this is BolBuddy. You scheduled your English practice for now. Want to practice for a few minutes?"
+    outbound_greeting_with_name = f"Hi {name}, this is HealthSathi, your health support companion. I'm calling for your scheduled health reminder. Is this a good time to talk?"
 
-    # Check requirement 1: who is calling
-    assert "this is BolBuddy" in outbound_greeting_with_name
-    # Check requirement 2: why they are calling
-    assert "You scheduled your English practice for now" in outbound_greeting_with_name
-    # Check requirement 3: consent / can decline
-    assert "Want to practice for a few minutes?" in outbound_greeting_with_name
+    assert "this is HealthSathi" in outbound_greeting_with_name
+    assert "scheduled health reminder" in outbound_greeting_with_name
+    assert "Is this a good time to talk?" in outbound_greeting_with_name

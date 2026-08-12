@@ -1,15 +1,23 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Brain, LifeBuoy, Mic, ShieldCheck, Sparkles } from 'lucide-react';
+import {
+  Activity,
+  Calendar,
+  Heart,
+  LifeBuoy,
+  MapPin,
+  Phone,
+  ShieldCheck,
+  Stethoscope,
+  UserCheck,
+} from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { getPersistentUserId } from '@/lib/utils';
-import { EscalationsDrawer } from './escalations-drawer';
+import { EscalationTicket, EscalationsDrawer } from './escalations-drawer';
+import { HealthRemindersSection } from './health-reminders-section';
 import { MemoryPanel, UserMemoryData } from './memory-panel';
-import { PracticeCallSection } from './practice-call-section';
-import { PRACTICE_MODES, PracticeMode, PracticeSelector } from './practice-selector';
-import { ProgressSummary } from './progress-summary';
 
 interface WelcomeViewProps {
   startButtonText?: string;
@@ -18,21 +26,22 @@ interface WelcomeViewProps {
 }
 
 export const WelcomeView = ({
-  startButtonText = '🎙 Start Speaking',
+  startButtonText = '🩺 Talk to HealthSathi',
   onStartCall,
-  onSelectTopic,
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
   const [memory, setMemory] = useState<UserMemoryData | null>(null);
+  const [recentTicket, setRecentTicket] = useState<EscalationTicket | null>(null);
   const [isMemoryOpen, setIsMemoryOpen] = useState(false);
   const [isEscalationsOpen, setIsEscalationsOpen] = useState(false);
-  const [selectedMode, setSelectedMode] = useState<PracticeMode>(PRACTICE_MODES[0]);
+  const [isRemindersOpen, setIsRemindersOpen] = useState(false);
 
-  // Fetch persistent memory facts on mount
   useEffect(() => {
-    async function loadMemory() {
+    async function loadData() {
       const userId = getPersistentUserId();
       if (!userId) return;
+
+      // Load Memory
       try {
         const res = await fetch(`/api/memory?userId=${encodeURIComponent(userId)}`);
         const data = await res.json();
@@ -42,52 +51,49 @@ export const WelcomeView = ({
       } catch (err) {
         console.warn('Memory fetch warning:', err);
       }
+
+      // Load Recent Escalation Support Ticket
+      try {
+        const escRes = await fetch('/api/escalations');
+        const escData = await escRes.json();
+        if (
+          escData.success &&
+          Array.isArray(escData.escalations) &&
+          escData.escalations.length > 0
+        ) {
+          setRecentTicket(escData.escalations[0]);
+        }
+      } catch (err) {
+        console.warn('Escalations fetch warning:', err);
+      }
     }
-    loadMemory();
+    loadData();
   }, []);
-
-  const handleSelectMode = (mode: PracticeMode) => {
-    setSelectedMode(mode);
-    if (onSelectTopic) {
-      onSelectTopic(mode.topicPrompt);
-    }
-  };
-
-  const handleStartCallClick = () => {
-    if (onSelectTopic) {
-      onSelectTopic(selectedMode.topicPrompt);
-    }
-    onStartCall();
-  };
 
   const handleMemoryCleared = () => {
     setMemory(null);
   };
 
   const greetingTitle = memory?.name
-    ? `Welcome back, ${memory.name}.`
-    : 'Ready for a little English practice?';
-
-  const greetingSubtitle = memory?.learningGoal
-    ? `Ready to continue your ${memory.learningGoal} practice?`
-    : 'No perfect English required. Just start speaking.';
+    ? `Welcome back, ${memory.name}`
+    : 'HealthSathi • Personal Health Support';
 
   return (
     <div
       ref={ref}
-      className="flex min-h-screen flex-col justify-between bg-[#F8FAFC] font-sans text-slate-900 selection:bg-indigo-100 selection:text-indigo-900"
+      className="flex min-h-screen flex-col bg-[#F8FAFC] font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900"
     >
-      {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-[#F8FAFC]/90 px-4 py-4 backdrop-blur-md sm:px-8">
+      {/* Clinical Medical Navigation Bar */}
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 px-6 py-4 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/20">
-              <Mic className="size-5 text-white" />
+            <div className="flex size-10 items-center justify-center rounded-xl bg-slate-900 text-teal-400 shadow-sm">
+              <Stethoscope className="size-5 text-teal-400" />
             </div>
             <div>
-              <span className="text-xl font-extrabold tracking-tight text-slate-900">BolBuddy</span>
-              <p className="text-[11px] font-medium text-slate-500">
-                AI English Speaking Companion
+              <span className="text-lg font-bold tracking-tight text-slate-900">HealthSathi</span>
+              <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+                Personal Health Support Companion
               </p>
             </div>
           </div>
@@ -96,27 +102,37 @@ export const WelcomeView = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setIsEscalationsOpen(true)}
-              className="rounded-full border-amber-200 bg-amber-50/70 text-xs font-bold text-amber-700 hover:bg-amber-100/70 hover:text-amber-900"
+              onClick={() => setIsRemindersOpen(true)}
+              className="rounded-lg border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50"
             >
-              <LifeBuoy className="mr-1.5 size-4 text-amber-600" />
-              <span>Human Help</span>
+              <Phone className="mr-1.5 size-3.5 text-teal-600" />
+              <span>Call Controls</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEscalationsOpen(true)}
+              className="rounded-lg border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+            >
+              <LifeBuoy className="mr-1.5 size-3.5 text-slate-600" />
+              <span>Support Requests</span>
             </Button>
 
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsMemoryOpen(true)}
-              className="rounded-full border-indigo-200 bg-indigo-50/70 text-xs font-bold text-indigo-700 hover:bg-indigo-100/70 hover:text-indigo-900"
+              className="rounded-lg border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50"
             >
-              <Brain className="mr-1.5 size-4 text-indigo-600" />
-              <span>Memory</span>
+              <UserCheck className="mr-1.5 size-3.5 text-slate-600" />
+              <span>Preferences</span>
             </Button>
 
             <Button
-              onClick={handleStartCallClick}
+              onClick={onStartCall}
               size="sm"
-              className="rounded-full bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/20 transition-all hover:bg-indigo-700"
+              className="rounded-lg bg-teal-700 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-teal-800"
             >
               {startButtonText}
             </Button>
@@ -124,106 +140,175 @@ export const WelcomeView = ({
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="mx-auto flex max-w-4xl flex-1 flex-col gap-10 px-4 py-8 sm:px-8 sm:py-12">
-        {/* Escalations Drawer */}
+      {/* Main Clinical Dashboard Layout */}
+      <main className="mx-auto flex max-w-4xl flex-1 flex-col gap-8 px-6 py-8 sm:py-10">
+        {/* Drawers */}
         <EscalationsDrawer isOpen={isEscalationsOpen} onClose={() => setIsEscalationsOpen(false)} />
-
-        {/* Memory Panel Drawer */}
         <MemoryPanel
           isOpen={isMemoryOpen}
           memory={memory}
           onClose={() => setIsMemoryOpen(false)}
           onMemoryCleared={handleMemoryCleared}
         />
+        <HealthRemindersSection
+          isOpen={isRemindersOpen}
+          onClose={() => setIsRemindersOpen(false)}
+        />
 
-        {/* Safe Judgement-Free Banner */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="flex items-center gap-3 rounded-2xl border border-indigo-200/60 bg-gradient-to-r from-indigo-50/80 via-purple-50/50 to-blue-50/30 p-4 text-xs font-medium text-slate-700 shadow-2xs"
-        >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-indigo-600/10 text-indigo-600">
+        {/* Safety Disclaimer Banner */}
+        <div className="flex items-center gap-3.5 rounded-xl border border-teal-200/80 bg-teal-50/60 p-4 text-xs text-slate-700 shadow-sm">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-teal-600 text-white">
             <ShieldCheck className="size-4" />
           </div>
           <div>
-            <span className="font-bold text-slate-900">
-              &quot;Speak freely without fear of mistakes.&quot;
-            </span>
+            <span className="font-bold text-slate-900">Health Guidance Disclaimer:</span>
             <span className="ml-1 text-slate-600">
-              Natural English &amp; Hinglish practice designed for Indian learners.
+              HealthSathi provides general health information and triage support. It does not
+              replace a qualified medical professional. For emergencies, always call{' '}
+              <strong>112</strong> or visit a hospital immediately.
             </span>
           </div>
-        </motion.div>
+        </div>
 
-        {/* Hero Section */}
-        <motion.section
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex flex-col gap-6 text-left"
-        >
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3.5 py-1.5 text-xs font-bold text-indigo-700">
-            <Sparkles className="size-3.5 text-indigo-600" />
-            <span>Learning &amp; Literacy • Voice-First</span>
+        {/* Main Hero & Action Card */}
+        <section className="flex flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-2">
+            <div className="inline-flex w-fit items-center gap-2 rounded-md bg-slate-100 px-3 py-1 text-[11px] font-bold tracking-wider text-slate-700 uppercase">
+              <Activity className="size-3 text-teal-600" />
+              Voice-First Health Guidance • English · Hindi · Hinglish
+            </div>
+            <h1 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">{greetingTitle}</h1>
+            <p className="text-sm font-medium text-slate-600">
+              Describe your symptoms naturally, receive non-diagnostic triage advice, or request
+              human health support.
+            </p>
           </div>
 
-          <div className="space-y-2">
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
-              {greetingTitle}
-            </h1>
-            <p className="text-base font-semibold text-indigo-600 sm:text-lg">{greetingSubtitle}</p>
-          </div>
-
-          {/* Primary Action Button */}
-          <div className="pt-2">
+          {/* Primary Action Buttons */}
+          <div className="flex flex-wrap items-center gap-3 pt-2">
             <Button
-              onClick={handleStartCallClick}
+              onClick={onStartCall}
               size="lg"
-              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-indigo-600 py-7 text-base font-extrabold text-white shadow-xl shadow-indigo-600/25 transition-all hover:scale-[1.01] hover:bg-indigo-700 sm:w-auto sm:px-10"
+              className="flex items-center gap-2.5 rounded-xl bg-teal-700 px-6 py-6 text-sm font-bold text-white shadow-sm hover:bg-teal-800"
             >
-              <span>🎙 Start Speaking</span>
-              <ArrowRight className="size-5" />
+              <Stethoscope className="size-4 text-teal-200" />
+              <span>Start Health Check</span>
+            </Button>
+
+            <Button
+              onClick={onStartCall}
+              variant="outline"
+              size="lg"
+              className="flex items-center gap-2 rounded-xl border-slate-300 bg-white px-6 py-6 text-sm font-bold text-slate-800 hover:bg-slate-50"
+            >
+              <Heart className="size-4 text-teal-600" />
+              <span>Talk to HealthSathi</span>
             </Button>
           </div>
-        </motion.section>
+        </section>
 
-        {/* Practice Selector */}
-        <motion.section
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <PracticeSelector selectedModeId={selectedMode.id} onSelectMode={handleSelectMode} />
-        </motion.section>
+        {/* Quick Actions Grid */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {/* Action 1: Call Me Now */}
+            <button
+              onClick={() => setIsRemindersOpen(true)}
+              className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 text-left transition-all hover:border-teal-300 hover:shadow-sm"
+            >
+              <div className="flex size-9 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
+                <Phone className="size-5" />
+              </div>
+              <div className="mt-4">
+                <p className="text-sm font-bold text-slate-900">Call Me Now</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Trigger an immediate outbound voice check-in to your phone
+                </p>
+              </div>
+            </button>
 
-        {/* Practice Call Section */}
-        <motion.section
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15 }}
-        >
-          <PracticeCallSection />
-        </motion.section>
+            {/* Action 2: Schedule a Call */}
+            <button
+              onClick={() => setIsRemindersOpen(true)}
+              className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 text-left transition-all hover:border-teal-300 hover:shadow-sm"
+            >
+              <div className="flex size-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                <Calendar className="size-5" />
+              </div>
+              <div className="mt-4">
+                <p className="text-sm font-bold text-slate-900">Schedule a Call</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Set a daily medication or follow-up call time
+                </p>
+              </div>
+            </button>
 
-        {/* Light Progress Summary */}
-        <motion.section
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <ProgressSummary
-            sessionCount={memory?.topicsPracticed?.length ? memory.topicsPracticed.length + 2 : 1}
-            topicsPracticedCount={memory?.topicsPracticed?.length || 1}
-            streakDays={2}
-          />
-        </motion.section>
+            {/* Action 3: Find Nearby Care */}
+            <button
+              onClick={onStartCall}
+              className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 text-left transition-all hover:border-teal-300 hover:shadow-sm"
+            >
+              <div className="flex size-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                <MapPin className="size-5" />
+              </div>
+              <div className="mt-4">
+                <p className="text-sm font-bold text-slate-900">Find Nearby Care</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Locate local health posts, PHCs, or general clinics
+                </p>
+              </div>
+            </button>
+          </div>
+        </section>
+
+        {/* Recent Support Section */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+            Recent Support Request
+          </h2>
+          {recentTicket ? (
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-teal-100 text-xs font-extrabold text-teal-800">
+                  {recentTicket.reference_id}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900">
+                    {recentTicket.reason_type.replace('_', ' ').toUpperCase()}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {recentTicket.issue_summary.slice(0, 70)}…
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                  {recentTicket.status}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEscalationsOpen(true)}
+                  className="text-xs font-bold text-teal-700 hover:bg-teal-50"
+                >
+                  View Details
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-center text-xs text-slate-400">
+              No recent human support requests. HealthSathi can submit a ticket if you need human
+              health assistance.
+            </div>
+          )}
+        </section>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200/60 bg-white py-4 text-center text-xs text-slate-400">
-        BolBuddy • AI English Speaking Companion for Indian Learners
+      <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
+        HealthSathi • Personal Health Support Companion • Non-Diagnostic Health Triage
       </footer>
     </div>
   );

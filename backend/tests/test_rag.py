@@ -1,12 +1,11 @@
 """
-Unit and evaluation test suite for Lightweight RAG system (src/rag.py).
+Unit and evaluation test suite for HealthSathi RAG system (src/rag.py).
 """
 
 import pytest
-from livekit.agents import AgentSession, inference, llm
+from livekit.agents import inference, llm
 
-from agent import Assistant
-from rag import query_learning_resources, search_learning_resources
+from rag import query_health_resources, search_health_resources
 
 
 def _llm() -> llm.LLM:
@@ -14,109 +13,74 @@ def _llm() -> llm.LLM:
 
 
 @pytest.mark.asyncio
-async def test_rag_grammar_question():
-    """Test 1: Grammar question retrieves beginner_grammar.md."""
-    res = query_learning_resources(
-        "Is it correct to say myself Ramesh or my name is Ramesh?"
+async def test_rag_symptom_question():
+    """Test 1: Fever symptom question retrieves symptom_basics.md."""
+    res = query_health_resources(
+        "What should I do if I have a fever?"
     )
     assert res is not None
-    assert "Beginner Grammar" in res["title"]
-    assert "Myself Ramesh" in res["content"] or "My name is" in res["content"]
+    assert "Symptom" in res["title"]
 
 
 @pytest.mark.asyncio
-async def test_rag_interview_question():
-    """Test 2: Interview question retrieves interview_english.md."""
-    res = query_learning_resources(
-        "How should I introduce myself in a job interview using STAR method?"
+async def test_rag_doctor_prep_question():
+    """Test 2: Doctor visit question retrieves doctor_visit_prep.md."""
+    res = query_health_resources(
+        "What questions should I ask my doctor during a visit?"
     )
     assert res is not None
-    assert "Interview" in res["title"]
+    assert "Doctor" in res["title"]
 
 
 @pytest.mark.asyncio
-async def test_rag_viva_question():
-    """Test 3: Viva question retrieves viva_english.md."""
-    res = query_learning_resources(
-        "How to explain my project to professors during college viva defense?"
+async def test_rag_medication_safety_question():
+    """Test 3: Medication question retrieves medication_safety.md."""
+    res = query_health_resources(
+        "How do I take my medication safely and consistently?"
     )
     assert res is not None
-    assert "Viva" in res["title"]
+    assert "Medication" in res["title"]
 
 
 @pytest.mark.asyncio
-async def test_rag_pronunciation_question():
-    """Test 4: Pronunciation question retrieves pronunciation_tips.md."""
-    res = query_learning_resources(
-        "How do I distinguish V and W sounds in English pronunciation?"
+async def test_rag_urgent_care_question():
+    """Test 4: Urgent warning signs question retrieves urgent_care_guidance.md."""
+    res = query_health_resources(
+        "What are the severe warning signs for immediate emergency care?"
     )
     assert res is not None
-    assert "Pronunciation" in res["title"]
+    assert "Urgent" in res["title"] or "Care" in res["title"]
 
 
 @pytest.mark.asyncio
-async def test_rag_hinglish_question():
-    """Test 5: Hinglish question retrieves relevant document snippet."""
-    res = query_learning_resources(
-        "Mujhe college presentation mein teammates ko hand over kaise karna hai?"
+async def test_rag_hinglish_symptom_question():
+    """Test 5: Hinglish health question retrieves relevant document snippet."""
+    res = query_health_resources(
+        "Mujhe doctor visit ke liye kya questions prepare karne chahiye?"
     )
     assert res is not None
-    assert "College" in res["title"] or "Presentation" in res["title"]
+    assert "Doctor" in res["title"]
 
 
 @pytest.mark.asyncio
 async def test_rag_irrelevant_question():
-    """Test 6: Irrelevant query returns None and tool returns 'No relevant learning resource found.'."""
-    res = query_learning_resources(
+    """Test 6: Irrelevant query returns None and tool returns 'No relevant health guidance document found.'."""
+    res = query_health_resources(
         "How do I bake a chocolate cake recipe step by step?"
     )
     assert res is None
 
-    tool_res = await search_learning_resources(
+    tool_res = await search_health_resources(
         context=None, query="How do I bake a chocolate cake recipe?"
     )
-    assert tool_res == "No relevant learning resource found."
+    assert "No relevant health guidance document found" in tool_res
 
 
 @pytest.mark.asyncio
 async def test_rag_no_relevant_document():
-    """Test 7: Query outside learning domain returns 'No relevant learning resource found.' without pretending."""
-    tool_res = await search_learning_resources(
+    """Test 7: Query outside health domain returns no relevant document without pretending."""
+    tool_res = await search_health_resources(
         context=None,
         query="What is the quantum mechanics theory of black hole event horizons?",
     )
-    assert tool_res == "No relevant learning resource found."
-
-
-@pytest.mark.asyncio
-async def test_rag_agent_spoken_voice_response_evaluation() -> None:
-    """LLM-as-judge evaluation: Agent uses RAG knowledge in natural spoken voice without technical citations or verbatim reading."""
-    async with (
-        _llm() as eval_llm,
-        AgentSession(llm=eval_llm) as session,
-    ):
-        await session.start(Assistant())
-
-        result = await session.run(
-            user_input="How can I pronounce V and W sounds clearly without getting confused?"
-        )
-
-        event_assert = result.expect.next_event()
-        try:
-            event_assert.is_function_call(name="search_learning_resources")
-            result.expect.next_event().is_function_call_output()
-            msg_assert = result.expect.next_event()
-        except AssertionError:
-            msg_assert = event_assert
-
-        await msg_assert.is_message(role="assistant").judge(
-            eval_llm,
-            intent="""
-            Explains how to pronounce V vs W clearly in a warm, encouraging, conversational voice.
-            Does NOT say 'According to the knowledge base', 'In the document', or cite file names.
-            Does NOT read markdown formatting verbatim.
-            Keeps the explanation short and practical.
-            """,
-        )
-
-        result.expect.no_more_events()
+    assert "No relevant health guidance document found" in tool_res

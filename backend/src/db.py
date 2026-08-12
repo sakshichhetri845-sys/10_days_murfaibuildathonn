@@ -1,7 +1,7 @@
 """
-Database module for BolBuddy Voice Agent persistent memory storage.
+Database module for HealthSathi Voice Agent persistent memory storage.
 
-Provides SQLite persistence for user identity, language preferences, learning-related facts,
+Provides SQLite persistence for user identity, language preferences, health reminder preferences,
 and interaction timestamps. Designed to survive agent restarts, backend restarts, and new sessions.
 """
 
@@ -16,14 +16,14 @@ logger = logging.getLogger("agent.db")
 
 # Default database directory and file location inside backend
 DEFAULT_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
-DEFAULT_DB_PATH = os.path.join(DEFAULT_DATA_DIR, "bolbuddy_memory.db")
+DEFAULT_DB_PATH = os.path.join(DEFAULT_DATA_DIR, "healthsathi_memory.db")
 
 
 def get_db_path(override_path: Optional[str] = None) -> str:
     """Get the active database file path."""
     if override_path:
         return override_path
-    return os.getenv("BOLBUDDY_DB_PATH", DEFAULT_DB_PATH)
+    return os.getenv("HEALTHSATHI_DB_PATH", os.getenv("BOLBUDDY_DB_PATH", DEFAULT_DB_PATH))
 
 
 def _get_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
@@ -88,7 +88,7 @@ def init_db(db_path: Optional[str] = None) -> bool:
                 CREATE TABLE IF NOT EXISTS daily_schedules (
                     user_id TEXT PRIMARY KEY,
                     phone_number TEXT NOT NULL,
-                    practice_topic TEXT NOT NULL DEFAULT 'Spoken English Practice',
+                    practice_topic TEXT NOT NULL DEFAULT 'Health Reminder',
                     preferred_time TEXT NOT NULL,
                     timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
                     enabled INTEGER NOT NULL DEFAULT 1,
@@ -350,17 +350,15 @@ def get_or_create_user(
     )
 
 
-def record_learning_progress(
+def record_health_preferences(
     user_id: str,
-    current_level: Optional[str] = None,
-    learning_goal: Optional[str] = None,
-    topics_practiced: Optional[list[str]] = None,
-    recurring_challenges: Optional[list[str]] = None,
+    reminder_preference: Optional[str] = None,
+    contact_preference: Optional[str] = None,
+    interaction_preferences: Optional[list[str]] = None,
     db_path: Optional[str] = None,
 ) -> Optional[dict[str, Any]]:
     """
-    Helper to update a user's learning facts while preserving existing topics and challenges.
-    Appends new unique topics and challenges to existing lists.
+    Helper to update a user's health preferences and reminder settings in persistent memory.
     """
     user = get_user(user_id, db_path=db_path)
     if not user:
@@ -369,42 +367,50 @@ def record_learning_progress(
             return None
 
     existing_facts = user.get("facts") or {}
-
     new_facts = dict(existing_facts)
 
-    if current_level is not None:
-        new_facts["current_level"] = current_level
+    if reminder_preference is not None:
+        new_facts["reminder_preference"] = reminder_preference
 
-    if learning_goal is not None:
-        new_facts["learning_goal"] = learning_goal
+    if contact_preference is not None:
+        new_facts["contact_preference"] = contact_preference
 
-    # Deduplicate and append topics
-    if topics_practiced:
-        current_topics = list(new_facts.get("topics_practiced", []))
-        for topic in topics_practiced:
-            if topic and topic not in current_topics:
-                current_topics.append(topic)
-        new_facts["topics_practiced"] = current_topics
-
-    # Deduplicate and append challenges
-    if recurring_challenges:
-        current_challenges = list(new_facts.get("recurring_challenges", []))
-        for challenge in recurring_challenges:
-            if challenge and challenge not in current_challenges:
-                current_challenges.append(challenge)
-        new_facts["recurring_challenges"] = current_challenges
+    if interaction_preferences:
+        current_prefs = list(new_facts.get("interaction_preferences", []))
+        for pref in interaction_preferences:
+            if pref and pref not in current_prefs:
+                current_prefs.append(pref)
+        new_facts["interaction_preferences"] = current_prefs
 
     return create_or_update_user(user_id=user_id, facts=new_facts, db_path=db_path)
 
 
-def save_learner_outbound_preferences(
+# Backward-compatible alias for tests/migration
+def record_learning_progress(
+    user_id: str,
+    current_level: Optional[str] = None,
+    learning_goal: Optional[str] = None,
+    topics_practiced: Optional[list[str]] = None,
+    recurring_challenges: Optional[list[str]] = None,
+    db_path: Optional[str] = None,
+) -> Optional[dict[str, Any]]:
+    """Backward compatible helper forwarding to record_health_preferences."""
+    return record_health_preferences(
+        user_id=user_id,
+        reminder_preference=learning_goal or current_level,
+        interaction_preferences=topics_practiced or recurring_challenges,
+        db_path=db_path,
+    )
+
+
+def save_health_outbound_preferences(
     user_id: str,
     phone_number: str,
     preferred_practice_time: str,
     name: Optional[str] = None,
     db_path: Optional[str] = None,
 ) -> bool:
-    """Save user's phone number and preferred practice time in persistent database."""
+    """Save user's phone number and preferred reminder time in persistent database."""
     if not user_id or not phone_number:
         return False
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -426,11 +432,25 @@ def save_learner_outbound_preferences(
             conn.commit()
             return True
     except sqlite3.Error as e:
-        logger.error(
-            f"Failed to save learner outbound preferences for '{user_id}': {e}",
-            exc_info=True,
-        )
+        logger.error(f"Failed to save outbound preferences for user {user_id}: {e}")
         return False
+
+
+def save_learner_outbound_preferences(
+    user_id: str,
+    phone_number: str,
+    preferred_practice_time: str,
+    name: Optional[str] = None,
+    db_path: Optional[str] = None,
+) -> bool:
+    """Backward compatible alias for save_health_outbound_preferences."""
+    return save_health_outbound_preferences(
+        user_id=user_id,
+        phone_number=phone_number,
+        preferred_practice_time=preferred_practice_time,
+        name=name,
+        db_path=db_path,
+    )
 
 
 def create_scheduled_call(

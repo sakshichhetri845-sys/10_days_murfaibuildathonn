@@ -17,6 +17,7 @@ from outbound import (
 def setup_test_db(tmp_path, monkeypatch):
     """Isolated database environment for Phase 10 test execution."""
     db_file = str(tmp_path / "test_phase10.db")
+    monkeypatch.setenv("HEALTHSATHI_DB_PATH", db_file)
     monkeypatch.setenv("BOLBUDDY_DB_PATH", db_file)
     init_db(db_path=db_file)
     return db_file
@@ -87,31 +88,24 @@ def test_scenario_3_no_answer():
 
 @pytest.mark.asyncio
 async def test_scenario_4_memory_continuity():
-    """TEST 4 — MEMORY: Practices internship interview English -> next outbound call continues context."""
+    """TEST 4 — MEMORY: Saves health preferences -> next outbound call continues context."""
     user_id = "user_memory_continuity"
 
-    # Call 1: Save memory topic
+    # Call 1: Save health memory
     create_or_update_user(
         user_id=user_id,
         name="Sakshyam",
-        facts={
-            "learning_goal": "internship interview preparation",
-            "topics_practiced": ["internship interview English"],
-        },
+        language_preference="Hinglish",
     )
 
     # Next outbound call: pre-fetch user memory
     memory = await async_prefetch_user_memory(user_id)
     assert memory is not None
     assert memory["name"] == "Sakshyam"
-    assert "internship interview English" in memory["facts"]["topics_practiced"]
 
     # Verify greeting and topic continuation text
-    greeting = f"Hi {memory['name']}, this is BolBuddy. You scheduled an English practice session. Is this still a good time?"
-    assert "Hi Sakshyam, this is BolBuddy" in greeting
-
-    topic_continue = f"Last time we practiced {memory['facts']['topics_practiced'][-1]}. Let's continue with one quick question."
-    assert "Last time we practiced internship interview English" in topic_continue
+    greeting = f"Hi {memory['name']}, this is HealthSathi. You scheduled a health reminder call. Is this a good time to talk?"
+    assert "Hi Sakshyam, this is HealthSathi" in greeting
 
 
 def test_scenario_5_immediate_hangup():

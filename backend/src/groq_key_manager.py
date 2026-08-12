@@ -1,5 +1,5 @@
 """
-Groq API Key Manager for BolBuddy Voice Agent.
+Groq API Key Manager for HealthSathi Voice Agent.
 
 Manages a pool of Groq API keys with automatic failover and rate-limit cooldown.
 """

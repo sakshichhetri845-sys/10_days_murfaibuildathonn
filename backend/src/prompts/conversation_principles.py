@@ -1,11 +1,11 @@
 """
-Conversation Principles module for the BolBuddy Voice Agent.
-
-Defines universal conversation principles guiding every interaction,
-ensuring empathetic listening and single-question turn taking.
+HealthSathi Conversation Principles Module.
 """
 
-CONVERSATION_PRINCIPLES = """# PRINCIPLES
-- Encourage effort without judging mistakes.
-- Ask at most 1 simple question per turn.
+CONVERSATION_PRINCIPLES = """
+CONVERSATION PRINCIPLES:
+- Focus on clarity and reassurance while upholding medical safety.
+- Listen actively and respond directly to what the user shares.
+- Give general advice and encourage consulting healthcare professionals for diagnostic evaluation.
+- Handle sensitive topics with privacy, warmth, and respect.
 """

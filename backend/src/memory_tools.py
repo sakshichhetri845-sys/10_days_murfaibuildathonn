@@ -1,8 +1,8 @@
 """
-Agent memory tools for BolBuddy Voice Agent with non-blocking asynchronous pre-fetching.
+Agent memory tools for HealthSathi Voice Agent with non-blocking asynchronous pre-fetching.
 
 Provides LiveKit function tools for reading (lookup_user_memory) and writing (save_user_memory)
-learner memory through the persistent database layer (src/db.py).
+user memory through the persistent database layer (src/db.py).
 """
 
 import asyncio
@@ -16,7 +16,7 @@ from db import (
     create_or_update_user,
     delete_user,
     get_user,
-    record_learning_progress,
+    record_health_preferences,
 )
 
 logger = logging.getLogger("agent.memory_tools")
@@ -51,7 +51,6 @@ async def async_prefetch_user_memory(
         return None
 
     try:
-        # Offload DB I/O to background thread so main asyncio event loop / audio stream is NEVER blocked
         user_data = await asyncio.wait_for(
             asyncio.to_thread(get_user, user_id),
             timeout=timeout_seconds,
@@ -154,10 +153,8 @@ async def lookup_user_memory(
         logger.warning("lookup_user_memory: No user_id resolved")
         return "No saved memory found for this user."
 
-    # 1. Fast path: check in-memory cache (< 1ms)
     user_data = get_cached_user_memory(target_user_id)
 
-    # 2. Fallback: if not in cache yet, perform non-blocking async prefetch
     if not user_data:
         user_data = await async_prefetch_user_memory(
             target_user_id, timeout_seconds=1.5
@@ -170,16 +167,14 @@ async def lookup_user_memory(
     name = user_data.get("name")
     language_preference = user_data.get("language_preference")
 
-    # Only treat user as having saved memory if user-provided facts exist
     has_explicit_memory = (
         name is not None
         or language_preference is not None
+        or bool(facts.get("reminder_preference"))
+        or bool(facts.get("contact_preference"))
+        or bool(facts.get("learning_goal"))
+        or bool(facts.get("current_level"))
         or bool(facts.get("topics_practiced"))
-        or bool(facts.get("recurring_challenges"))
-        or (
-            facts.get("learning_goal")
-            and facts.get("learning_goal") != "everyday conversation"
-        )
     )
 
     if not has_explicit_memory:
@@ -188,10 +183,9 @@ async def lookup_user_memory(
     memory_info = {
         "name": name if name else None,
         "language_preference": language_preference if language_preference else None,
-        "level": facts.get("current_level"),
-        "learning_goal": facts.get("learning_goal"),
-        "topics_practiced": facts.get("topics_practiced", []),
-        "recurring_challenges": facts.get("recurring_challenges", []),
+        "reminder_preference": facts.get("reminder_preference") or facts.get("learning_goal"),
+        "contact_preference": facts.get("contact_preference"),
+        "interaction_preferences": facts.get("interaction_preferences") or facts.get("topics_practiced", []),
     }
 
     filtered_memory = {k: v for k, v in memory_info.items() if v is not None}
@@ -207,13 +201,15 @@ async def save_user_memory(
     context: RunContext,
     name: str = "",
     language_preference: str = "",
+    reminder_preference: str = "",
+    contact_preference: str = "",
     level: str = "",
     learning_goal: str = "",
     topic_practiced: str = "",
     recurring_challenge: str = "",
     user_id: str = "",
 ) -> str:
-    """Save user memory facts (name, level, goal, challenge)."""
+    """Save user memory facts (name, language, reminder preference, contact preference). Always require user consent before saving non-essential details."""
     target_user_id = _resolve_user_id(context, user_id)
     if not target_user_id:
         logger.warning("save_user_memory: No user_id resolved")
@@ -221,13 +217,11 @@ async def save_user_memory(
 
     clean_name = name.strip() if name else None
     clean_lang = language_preference.strip() if language_preference else None
-    clean_level = level.strip() if level else None
-    clean_goal = learning_goal.strip() if learning_goal else None
-    clean_topic = topic_practiced.strip() if topic_practiced else None
-    clean_challenge = recurring_challenge.strip() if recurring_challenge else None
+    clean_reminder = (reminder_preference or learning_goal or level).strip() if (reminder_preference or learning_goal or level) else None
+    clean_contact = contact_preference.strip() if contact_preference else None
+    clean_interaction = (topic_practiced or recurring_challenge).strip() if (topic_practiced or recurring_challenge) else None
 
-    topics_list = [clean_topic] if clean_topic else None
-    challenges_list = [clean_challenge] if clean_challenge else None
+    interaction_list = [clean_interaction] if clean_interaction else None
 
     updated_user = None
 
@@ -238,29 +232,22 @@ async def save_user_memory(
             language_preference=clean_lang,
         )
 
-    if clean_level or clean_goal or topics_list or challenges_list:
-        updated_user = record_learning_progress(
+    if clean_reminder or clean_contact or interaction_list:
+        updated_user = record_health_preferences(
             user_id=target_user_id,
-            current_level=clean_level,
-            learning_goal=clean_goal,
-            topics_practiced=topics_list,
-            recurring_challenges=challenges_list,
+            reminder_preference=clean_reminder,
+            contact_preference=clean_contact,
+            interaction_preferences=interaction_list,
         )
 
     if updated_user is None and not (
-        clean_name
-        or clean_lang
-        or clean_level
-        or clean_goal
-        or topics_list
-        or challenges_list
+        clean_name or clean_lang or clean_reminder or clean_contact or interaction_list
     ):
         return "No memory fields were provided to save."
 
     if updated_user is None:
         return "Unable to save memory due to a database error."
 
-    # Update cache immediately on save
     _USER_MEMORY_CACHE[target_user_id] = updated_user
 
     return "Memory saved successfully."

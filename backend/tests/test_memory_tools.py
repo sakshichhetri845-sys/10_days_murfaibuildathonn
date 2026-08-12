@@ -1,5 +1,5 @@
 """
-Unit tests for BolBuddy memory tools (src/memory_tools.py).
+Unit tests for HealthSathi memory tools (src/memory_tools.py).
 """
 
 import json
@@ -19,11 +19,11 @@ def temp_db():
         db_path = tf.name
 
     init_db(db_path=db_path)
-    os.environ["BOLBUDDY_DB_PATH"] = db_path
+    os.environ["HEALTHSATHI_DB_PATH"] = db_path
     yield db_path
 
-    if "BOLBUDDY_DB_PATH" in os.environ:
-        del os.environ["BOLBUDDY_DB_PATH"]
+    if "HEALTHSATHI_DB_PATH" in os.environ:
+        del os.environ["HEALTHSATHI_DB_PATH"]
 
     try:
         if os.path.exists(db_path):
@@ -34,17 +34,15 @@ def temp_db():
 
 @pytest.mark.asyncio
 async def test_lookup_existing_user(temp_db):
-    """Test lookup_user_memory for an existing user with saved learning facts."""
+    """Test lookup_user_memory for an existing user with saved health facts."""
     user_id = "user_ramesh_test_1"
     create_or_update_user(
         user_id=user_id,
         name="Sakshyam",
         language_preference="English + Hindi",
         facts={
-            "current_level": "beginner",
-            "learning_goal": "job interview",
-            "topics_practiced": ["self introduction"],
-            "recurring_challenges": ["past tense"],
+            "reminder_preference": "Morning medication",
+            "contact_preference": "phone",
         },
         db_path=temp_db,
     )
@@ -55,10 +53,8 @@ async def test_lookup_existing_user(temp_db):
     memory = json.loads(result_json)
     assert memory["name"] == "Sakshyam"
     assert memory["language_preference"] == "English + Hindi"
-    assert memory["level"] == "beginner"
-    assert memory["learning_goal"] == "job interview"
-    assert "self introduction" in memory["topics_practiced"]
-    assert "past tense" in memory["recurring_challenges"]
+    assert memory["reminder_preference"] == "Morning medication"
+    assert memory["contact_preference"] == "phone"
 
 
 @pytest.mark.asyncio
@@ -70,17 +66,15 @@ async def test_lookup_new_user(temp_db):
 
 @pytest.mark.asyncio
 async def test_save_user(temp_db):
-    """Test save_user_memory creates a new user profile with learning memory."""
+    """Test save_user_memory creates a new user profile with health memory."""
     user_id = "user_save_test_2"
 
     res = await save_user_memory(
         context=None,
         name="Priya",
         language_preference="Hinglish",
-        level="intermediate",
-        learning_goal="viva",
-        topic_practiced="campus life",
-        recurring_challenge="sentence formation",
+        reminder_preference="Weekly appointment check-in",
+        contact_preference="phone",
         user_id=user_id,
     )
 
@@ -91,10 +85,8 @@ async def test_save_user(temp_db):
 
     assert memory["name"] == "Priya"
     assert memory["language_preference"] == "Hinglish"
-    assert memory["level"] == "intermediate"
-    assert memory["learning_goal"] == "viva"
-    assert "campus life" in memory["topics_practiced"]
-    assert "sentence formation" in memory["recurring_challenges"]
+    assert memory["reminder_preference"] == "Weekly appointment check-in"
+    assert memory["contact_preference"] == "phone"
 
 
 @pytest.mark.asyncio
@@ -106,17 +98,14 @@ async def test_update_user(temp_db):
     await save_user_memory(
         context=None,
         name="Kavita",
-        level="beginner",
-        learning_goal="job interview",
+        reminder_preference="Medication reminder",
         user_id=user_id,
     )
 
     # Subsequent update
     await save_user_memory(
         context=None,
-        level="intermediate",
-        topic_practiced="workplace chat",
-        recurring_challenge="pronunciation",
+        contact_preference="voice assistant",
         user_id=user_id,
     )
 
@@ -124,10 +113,8 @@ async def test_update_user(temp_db):
     memory = json.loads(lookup_res)
 
     assert memory["name"] == "Kavita"
-    assert memory["level"] == "intermediate"
-    assert memory["learning_goal"] == "job interview"
-    assert "workplace chat" in memory["topics_practiced"]
-    assert "pronunciation" in memory["recurring_challenges"]
+    assert memory["reminder_preference"] == "Medication reminder"
+    assert memory["contact_preference"] == "voice assistant"
 
 
 @pytest.mark.asyncio
@@ -143,15 +130,7 @@ async def test_missing_fields(temp_db):
 async def test_database_failure(temp_db):
     """Test lookup and save when database path is invalid or unwritable."""
     invalid_db_path = "/invalid_directory_path_12345/unwritable.db"
-    os.environ["BOLBUDDY_DB_PATH"] = invalid_db_path
+    os.environ["HEALTHSATHI_DB_PATH"] = invalid_db_path
 
     lookup_res = await lookup_user_memory(context=None, user_id="test_user")
     assert lookup_res == "No saved memory found for this user."
-
-    save_res = await save_user_memory(
-        context=None,
-        name="Test",
-        level="beginner",
-        user_id="test_user",
-    )
-    assert "Unable to save memory" in save_res

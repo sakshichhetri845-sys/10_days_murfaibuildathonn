@@ -63,10 +63,10 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" content="#faf9f7" />
-        <link rel="icon" href="/bolbuddy-logo.svg" type="image/svg+xml" />
+        <meta name="theme-color" content="#F0FAFA" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </head>
-      <body className="overflow-x-hidden bg-[#faf9f7]">
+      <body className="overflow-x-hidden bg-[#F0FAFA]">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

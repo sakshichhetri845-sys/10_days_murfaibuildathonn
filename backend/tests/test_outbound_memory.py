@@ -1,10 +1,10 @@
 """
-Tests for Phase 5 — Memory Integration during Outbound Practice Calls.
+Tests for Memory Integration during Outbound Health Reminder Calls for HealthSathi.
 """
 
 import pytest
 
-from db import create_or_update_user, get_user, init_db
+from db import create_or_update_user, init_db
 from memory_tools import async_prefetch_user_memory
 from prompts.system_prompt import SYSTEM_PROMPT
 
@@ -13,57 +13,40 @@ from prompts.system_prompt import SYSTEM_PROMPT
 def setup_test_db(tmp_path, monkeypatch):
     """Isolated database for test suite."""
     db_file = str(tmp_path / "test_outbound_memory.db")
-    monkeypatch.setenv("BOLBUDDY_DB_PATH", db_file)
+    monkeypatch.setenv("HEALTHSATHI_DB_PATH", db_file)
     init_db(db_path=db_file)
     return db_file
 
 
-def test_system_prompt_phase5_memory_rules():
-    """Verify system prompt contains Phase 5 recognized caller & memory rules."""
-    assert "Want to practice for a few minutes?" in SYSTEM_PROMPT
-    assert "PRACTICE" in SYSTEM_PROMPT
-    assert "Never expose internal states, database keys" in SYSTEM_PROMPT
+def test_system_prompt_health_rules():
+    """Verify system prompt contains HealthSathi identity & memory rules."""
+    assert "HealthSathi" in SYSTEM_PROMPT
+    assert "HUMAN ESCALATION CONSENT RULE" in SYSTEM_PROMPT
 
 
 @pytest.mark.asyncio
-async def test_recognized_learner_memory_lookup():
-    """Verify Day 4 memory retrieval loads learner name and past practice topics."""
+async def test_recognized_user_memory_lookup():
+    """Verify memory retrieval loads user name and reminder preferences."""
     user_id = "user_sakshyam_test"
     create_or_update_user(
         user_id=user_id,
         name="Sakshyam",
         facts={
-            "learning_goal": "internship interview preparation",
-            "topics_practiced": ["internship interview English"],
+            "reminder_preference": "Medication reminder 8am",
         },
     )
 
-    # Prefetch memory via Day 4 async cache
     memory = await async_prefetch_user_memory(user_id)
     assert memory is not None
     assert memory["name"] == "Sakshyam"
+    assert memory["facts"]["reminder_preference"] == "Medication reminder 8am"
 
-    facts = memory["facts"]
-    assert facts["learning_goal"] == "internship interview preparation"
-    assert "internship interview English" in facts["topics_practiced"]
-
-    # Verify recognized caller greeting construction
-    greeting = f"Hi {memory['name']}, this is BolBuddy. You scheduled an English practice session. Is this still a good time?"
-    assert (
-        greeting
-        == "Hi Sakshyam, this is BolBuddy. You scheduled an English practice session. Is this still a good time?"
-    )
+    greeting = f"Hi {memory['name']}, this is HealthSathi, your health support companion."
+    assert greeting == "Hi Sakshyam, this is HealthSathi, your health support companion."
 
 
 @pytest.mark.asyncio
 async def test_memory_lookup_failure_fallback():
     """Verify system handles missing or failed memory lookups gracefully without crashing."""
-    user_id = "non_existent_user_999"
-
-    # Non-existent user returns None or empty record without error
-    user = get_user(user_id)
-    assert user is None
-
-    # Memory prefetch handles unknown user cleanly
-    prefetch = await async_prefetch_user_memory(user_id)
-    assert prefetch is None
+    memory = await async_prefetch_user_memory("non_existent_user_xyz")
+    assert memory is None

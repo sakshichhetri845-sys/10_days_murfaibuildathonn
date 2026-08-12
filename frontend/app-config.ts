@@ -33,26 +33,26 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'Voice for Bharat',
-  pageTitle: 'BolBuddy — Your AI English Speaking & Literacy Companion',
+  companyName: 'HealthSathi',
+  pageTitle: 'HealthSathi — Your friendly voice companion for everyday health guidance',
   pageDescription:
-    'Helping you practice conversational English, build speaking confidence, and overcome communication barriers in everyday life.',
+    'HealthSathi helps you understand symptoms, prepare for doctor visits, set medication reminders, and access health guidance in your language — English, Hindi, or Hinglish.',
 
   supportsChatInput: true,
   supportsVideoInput: false,
   supportsScreenShare: false,
   isPreConnectBufferEnabled: true,
 
-  logo: '/bolbuddy-logo.svg',
-  accent: '#4F46E5',
-  logoDark: '/bolbuddy-logo.svg',
-  accentDark: '#818CF8',
-  startButtonText: '🎙 Talk to BolBuddy',
+  logo: '/healthsathi-logo.svg',
+  accent: 'hsl(173, 58%, 39%)',
+  logoDark: '/healthsathi-logo.svg',
+  accentDark: 'hsl(173, 58%, 55%)',
+  startButtonText: '🩺 Talk to HealthSathi',
 
   audioVisualizerType: 'aura',
-  audioVisualizerColor: '#2563EB',
-  audioVisualizerColorDark: '#14B8A6',
-  audioVisualizerColorShift: 0.25,
+  audioVisualizerColor: '#1A9E8F',
+  audioVisualizerColorDark: '#2DD4BF',
+  audioVisualizerColorShift: 0.2,
 
   // agent dispatch configuration
   agentName: process.env.AGENT_NAME ?? undefined,

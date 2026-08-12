@@ -1,10 +1,11 @@
 """
-Escalation tools module for BolBuddy Voice Agent (Day 7).
+Escalation tools module for HealthSathi Voice Agent.
 
 Provides human escalation request creation, PII redaction, reference ID generation,
 duplicate request prevention, SQLite persistence, and real Discord webhook dispatch.
 """
 
+import json
 import logging
 import os
 import random
@@ -57,9 +58,9 @@ def _redact_pii(text: str) -> str:
 
 
 def _generate_ref_id() -> str:
-    """Generate a unique reference ID for escalation tracking (e.g., ESC-4819)."""
+    """Generate a unique reference ID for escalation tracking (e.g., HS-4821)."""
     num = random.randint(1000, 9999)
-    return f"ESC-{num}"
+    return f"HS-{num}"
 
 
 def _get_webhook_url() -> Optional[str]:
@@ -70,7 +71,9 @@ def _get_webhook_url() -> Optional[str]:
         or os.getenv("DISCORD_WEBHOOK_URL", "").strip()
         or os.getenv("ESCALATION_WEBHOOK_URL", "").strip()
     )
-    return url if url else None
+    if not url or "your_" in url.lower() or "example.com" in url.lower():
+        return None
+    return url
 
 
 async def send_escalation_webhook(
@@ -93,23 +96,23 @@ async def send_escalation_webhook(
     clean_checked = _redact_pii(
         escalation.get(
             "checked_by_agent",
-            "Normal practice guidance was provided before escalation.",
+            "Health guidance and general information provided prior to escalation request.",
         )
     )
 
     header_title = (
-        f"🚨 **BolBuddy Human Help Request Updated: `{escalation['reference_id']}`**"
+        f"🚨 **HealthSathi Human Support Request Updated: `{escalation['reference_id']}`**"
         if is_update
-        else "🚨 **New BolBuddy Human Help Request**"
+        else "🚨 **New HealthSathi Human Support Request**"
     )
 
     content_text = (
         f"{header_title}\n\n"
         f"**Reference:** {escalation.get('reference_id', 'N/A')}\n"
-        f"**Reason:** {escalation.get('reason_type', 'Human Assistance')}\n"
+        f"**Reason:** {escalation.get('reason_type', 'Health Support')}\n"
         f"**Urgency:** {escalation.get('urgency', 'medium').capitalize()}\n\n"
-        f"**Learner:**\n{escalation.get('who_needs_help', 'Learner')}\n\n"
-        f"**Summary:**\n{clean_summary or 'Learner requested human assistance.'}\n\n"
+        f"**User:**\n{escalation.get('who_needs_help', 'User')}\n\n"
+        f"**Summary:**\n{clean_summary or 'User requested human health support.'}\n\n"
         f"**Language:** {escalation.get('preferred_language', 'English')}\n"
         f"**Follow-up:** {escalation.get('preferred_contact', 'phone')}\n\n"
         f"**Status:** {escalation.get('status', 'OPEN')}"
@@ -119,7 +122,7 @@ async def send_escalation_webhook(
         "content": content_text,
         "embeds": [
             {
-                "title": f"BolBuddy Escalation Request ({escalation.get('urgency', 'medium').upper()})",
+                "title": f"HealthSathi Support Request ({escalation.get('urgency', 'medium').upper()})",
                 "color": 15158332
                 if escalation.get("urgency", "").lower() in ("high", "emergency")
                 else 3447003,
@@ -131,7 +134,7 @@ async def send_escalation_webhook(
                     },
                     {
                         "name": "Reason",
-                        "value": escalation.get("reason_type", "Human Assistance"),
+                        "value": escalation.get("reason_type", "Health Support"),
                         "inline": True,
                     },
                     {
@@ -145,8 +148,8 @@ async def send_escalation_webhook(
                         "inline": True,
                     },
                     {
-                        "name": "Learner",
-                        "value": escalation.get("who_needs_help", "Learner"),
+                        "name": "User",
+                        "value": escalation.get("who_needs_help", "User"),
                         "inline": True,
                     },
                     {
@@ -160,8 +163,8 @@ async def send_escalation_webhook(
                         "inline": False,
                     },
                     {
-                        "name": "What BolBuddy Already Checked",
-                        "value": clean_checked or "Normal guidance provided.",
+                        "name": "What HealthSathi Already Checked",
+                        "value": clean_checked or "Health guidance provided.",
                         "inline": False,
                     },
                     {
@@ -170,13 +173,13 @@ async def send_escalation_webhook(
                         "inline": True,
                     },
                 ],
-                "footer": {"text": "BolBuddy AI Voice Agent — Day 7 Escalation"},
+                "footer": {"text": "HealthSathi Voice Companion — Human Support"},
             }
         ],
     }
 
     headers = {
-        "User-Agent": "BolBuddy-VoiceAgent/1.0",
+        "User-Agent": "HealthSathi-VoiceAgent/1.0",
         "Content-Type": "application/json",
     }
 
@@ -198,10 +201,39 @@ async def send_escalation_webhook(
         return False
 
 
+def _check_user_explicit_consent(context: Any) -> bool:
+    """Verify if the last user message in session context contains an explicit consent confirmation keyword."""
+    if not context:
+        return True
+
+    sess = getattr(context, "session", None)
+    if not sess:
+        return True
+
+    chat_ctx = getattr(sess, "chat_ctx", None)
+    if not chat_ctx or not hasattr(chat_ctx, "messages"):
+        return True
+
+    user_msgs = [m for m in chat_ctx.messages if getattr(m, "role", "") == "user"]
+    if not user_msgs:
+        return True
+
+    last_user_text = str(getattr(user_msgs[-1], "content", "") or "").lower()
+
+    consent_keywords = [
+        "yes", "yeah", "yep", "sure", "go ahead", "confirm", "submit",
+        "please do", "share my data", "create ticket", "create a ticket",
+        "i agree", "ok", "okay", "haan", "ha", "thik h", "thik hai", "call me", "connect me"
+    ]
+
+    return any(kw in last_user_text for kw in consent_keywords)
+
+
 async def create_escalation(
     context: Any = None,
+    user_confirmed_consent: bool = False,
     who_needs_help: str = "",
-    reason_type: str = "learner_distress",
+    reason_type: str = "health_concern",
     issue_summary: str = "",
     checked_by_agent: str = "",
     urgency: str = "medium",
@@ -211,20 +243,28 @@ async def create_escalation(
     db_path: Optional[str] = None,
 ) -> str:
     """
-    Core implementation of the human escalation tool.
+    Core implementation of the human escalation tool for HealthSathi.
 
-    1. Validates escalation data & redacts PII.
-    2. Checks for existing open duplicate.
-    3. Creates/updates SQLite database record (Source of truth).
-    4. Attempts Discord webhook notification.
-    5. Returns clear status & reference ID to BolBuddy.
+    1. Validates explicit user consent confirmation.
+    2. Redacts PII from issue summary.
+    3. Checks for existing open duplicate ticket.
+    4. Creates/updates SQLite database record (Source of truth).
+    5. Attempts Discord webhook notification.
+    6. Returns clear status & reference ID to HealthSathi.
     """
-    # Ensure database schema is initialized
+    if not user_confirmed_consent or not _check_user_explicit_consent(context):
+        logger.warning(
+            "create_escalation invoked without explicit user consent in recent chat history. Ticket creation refused."
+        )
+        return json.dumps({
+            "success": False,
+            "error": "User consent is not confirmed. You MUST ask the user: 'Would you like me to create a support request and share a summary with our human support team?' and ONLY call this tool after the user explicitly says YES.",
+        }, ensure_ascii=False)
+
     from db import init_db
 
     init_db(db_path=db_path)
 
-    # Fallback user ID extraction safely without raising ValueError on session.userdata
     if not user_id and context:
         sess = getattr(context, "session", None)
         if sess:
@@ -235,20 +275,17 @@ async def create_escalation(
             except (ValueError, AttributeError):
                 pass
     if not user_id:
-        user_id = "default_learner"
+        user_id = "default_user"
 
     if not who_needs_help:
-        who_needs_help = f"Learner ({user_id})"
+        who_needs_help = f"User ({user_id})"
 
-    # Sanitize and redact any private information (PII)
     clean_summary = _redact_pii(issue_summary)
     clean_checked = _redact_pii(checked_by_agent)
 
-    # Normalize urgency
     valid_urgencies = ("low", "medium", "high", "emergency")
     clean_urgency = urgency.lower() if urgency.lower() in valid_urgencies else "medium"
 
-    # Stop duplicate requests: check if user has an existing OPEN ticket for this reason
     existing_open = get_open_escalation_by_user(
         user_id=user_id, reason_type=reason_type, db_path=db_path
     )
@@ -274,21 +311,21 @@ async def create_escalation(
             f"Updated existing open escalation ticket {ref_id} for user {user_id}"
         )
 
-        webhook_success = False
+        discord_ok = False
         if updated_record:
-            webhook_success = await send_escalation_webhook(
-                updated_record, is_update=True
-            )
+            discord_ok = await send_escalation_webhook(updated_record, is_update=True)
 
-        if webhook_success:
-            return f"Your support request has been initialized. Your reference ID is {ref_id}. A human teacher will review your request and contact you within 24 hours."
-        else:
-            return f"Your support request has been initialized. Your reference ID is {ref_id}. A human teacher will review your request and contact you within 24 hours."
+        return json.dumps({
+            "success": True,
+            "reference_id": ref_id,
+            "status": "OPEN",
+            "urgency": clean_urgency,
+            "discord_sent": discord_ok,
+            "message": f"I've created your support request. Your ticket number is {ref_id}. A healthcare support person will review it and follow up using your preferred contact method.",
+        }, ensure_ascii=False)
 
-    # Generate new reference ID
     ref_id = _generate_ref_id()
 
-    # Save to SQLite database (Source of Truth)
     saved = save_escalation(
         reference_id=ref_id,
         user_id=user_id,
@@ -304,13 +341,22 @@ async def create_escalation(
     )
 
     if not saved:
-        return "Failed to create escalation ticket due to database error."
+        return json.dumps({
+            "success": False,
+            "error": "Failed to create support request due to database error.",
+        }, ensure_ascii=False)
 
-    # Attempt Discord notification
-    webhook_success = await send_escalation_webhook(saved, is_update=False)
+    discord_ok = await send_escalation_webhook(saved, is_update=False)
 
     logger.info(
-        f"Successfully created escalation ticket {ref_id} for user {user_id} (Webhook delivered: {webhook_success})"
+        f"Successfully created escalation ticket {ref_id} for user {user_id} (Discord sent: {discord_ok})"
     )
 
-    return f"Your support request has been initialized. Your reference ID is {ref_id}. A human teacher will review your request and contact you within 24 hours."
+    return json.dumps({
+        "success": True,
+        "reference_id": ref_id,
+        "status": "OPEN",
+        "urgency": clean_urgency,
+        "discord_sent": discord_ok,
+        "message": f"I've created your support request. Your ticket number is {ref_id}. A healthcare support person will review it and follow up using your preferred contact method.",
+    }, ensure_ascii=False)

@@ -1,7 +1,7 @@
 """
-Persistent Background Scheduler for BolBuddy Voice Agent.
+Persistent Background Scheduler for HealthSathi Voice Agent.
 
-Polls SQLite database every N seconds (default 15s) for due daily practice call schedules.
+Polls SQLite database every N seconds (default 15s) for due daily health reminder call schedules.
 Triggers LiveKit outbound calls, calculates next daily occurrence, and handles errors gracefully.
 """
 
@@ -9,7 +9,7 @@ import asyncio
 import logging
 from typing import Any, Optional
 
-from outbound import trigger_outbound_practice
+from outbound import trigger_outbound_reminder
 from schedule_model import (
     get_due_schedules,
     update_schedule_next_occurrence,
@@ -29,15 +29,14 @@ async def process_due_schedules(db_path: Optional[str] = None) -> list[dict[str,
     for sched in due_list:
         user_id = sched["user_id"]
         phone_number = sched["phone_number"]
-        practice_topic = sched.get("practice_topic", "Spoken English Practice")
+        practice_topic = sched.get("practice_topic", "Health Reminder")
 
         logger.info(
-            f"Scheduler triggering due daily practice call for user '{user_id}' (Topic: {practice_topic})"
+            f"Scheduler triggering due daily health reminder call for user '{user_id}' (Topic: {practice_topic})"
         )
 
         try:
-            # Trigger existing LiveKit outbound SIP call integration
-            res = await trigger_outbound_practice(
+            res = await trigger_outbound_reminder(
                 user_id=user_id,
                 phone_number=phone_number,
                 practice_topic=practice_topic,
@@ -51,7 +50,6 @@ async def process_due_schedules(db_path: Optional[str] = None) -> list[dict[str,
             )
             results.append({"user_id": user_id, "success": False, "error": str(err)})
 
-        # Always advance next_call_at to next daily occurrence so failures don't loop continuously
         try:
             updated = update_schedule_next_occurrence(user_id, db_path=db_path)
             logger.info(
@@ -72,7 +70,7 @@ async def start_scheduler_loop(
     Background polling loop. Runs with short sleep intervals (e.g. 15s) to check due tasks.
     """
     logger.info(
-        f"BolBuddy Daily Practice Scheduler started (Polling every {poll_interval_seconds}s)"
+        f"HealthSathi Daily Reminder Scheduler started (Polling every {poll_interval_seconds}s)"
     )
     while True:
         try:
@@ -85,7 +83,7 @@ async def start_scheduler_loop(
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    logger.info("Starting standalone BolBuddy Daily Scheduler...")
+    logger.info("Starting standalone HealthSathi Daily Scheduler...")
     try:
         asyncio.run(start_scheduler_loop())
     except KeyboardInterrupt:

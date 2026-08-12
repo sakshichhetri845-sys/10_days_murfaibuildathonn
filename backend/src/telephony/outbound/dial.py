@@ -1,6 +1,6 @@
-"""Trigger an outbound call for BolBuddy.
+"""Trigger an outbound call for HealthSathi.
 
-Dispatches the outbound BolBuddy agent into a room with phone number and learner metadata attached.
+Dispatches the outbound HealthSathi agent into a room with phone number and user metadata attached.
 
 Usage:
 
@@ -8,7 +8,7 @@ Usage:
 
 Then trigger a call from another terminal:
 
-    uv run python src/telephony/outbound/dial.py --to +9779876543210 --user-id sakshyam
+    uv run python src/telephony/outbound/dial.py --to +9779876543210 --user-id ramesh
 """
 
 import argparse

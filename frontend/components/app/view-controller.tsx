@@ -3,11 +3,11 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useSessionContext } from '@livekit/components-react';
 import type { AppConfig } from '@/app-config';
-import { BolBuddySessionView } from '@/components/app/bolbuddy-session-view';
+import { HealthSathiSessionView } from '@/components/app/healthsathi-session-view';
 import { WelcomeView } from '@/components/app/welcome-view';
 
 const MotionWelcomeView = motion.create(WelcomeView);
-const MotionSessionView = motion.create(BolBuddySessionView);
+const MotionSessionView = motion.create(HealthSathiSessionView);
 
 const VIEW_MOTION_PROPS = {
   variants: {
@@ -45,7 +45,7 @@ export function ViewController({ appConfig }: ViewControllerProps) {
           onStartCall={start}
         />
       )}
-      {/* Active BolBuddy Voice Session View */}
+      {/* Active HealthSathi Voice Session View */}
       {isConnected && <MotionSessionView key="session-view" {...VIEW_MOTION_PROPS} />}
     </AnimatePresence>
   );

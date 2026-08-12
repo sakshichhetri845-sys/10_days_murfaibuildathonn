@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const cookieStore = await cookies();
-    const cookieUserId = cookieStore.get('bolbuddy_user_id')?.value;
+    const cookieUserId = cookieStore.get('healthsathi_user_id')?.value;
     const userId = searchParams.get('userId') || cookieUserId;
 
     if (!userId) {

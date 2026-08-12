@@ -36,7 +36,7 @@ async function getOrGenerateUserId(
 
   try {
     const cookieStore = await cookies();
-    const cookieUserId = cookieStore.get('bolbuddy_user_id')?.value;
+    const cookieUserId = cookieStore.get('healthsathi_user_id')?.value;
     if (cookieUserId) {
       return { userId: cookieUserId, isNewCookie: false };
     }
@@ -44,7 +44,7 @@ async function getOrGenerateUserId(
     // Ignore cookie retrieval errors in static contexts
   }
 
-  const newUserId = `bolbuddy_user_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
+  const newUserId = `healthsathi_user_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
   return { userId: newUserId, isNewCookie: true };
 }
 
@@ -78,7 +78,7 @@ async function handleTokenRequest(req: Request, body?: Record<string, unknown>) 
   const sessionNonce = Math.random().toString(36).substring(2, 7);
   const roomName =
     (body?.roomName as string | undefined) ||
-    `bolbuddy_room_${userId.replace(/[^a-zA-Z0-9_-]/g, '_')}_${sessionNonce}`;
+    `healthsathi_room_${userId.replace(/[^a-zA-Z0-9_-]/g, '_')}_${sessionNonce}`;
 
   const participantToken = await createParticipantToken(
     { identity: participantIdentity, name: participantName },
@@ -100,7 +100,7 @@ async function handleTokenRequest(req: Request, body?: Record<string, unknown>) 
   });
 
   if (isNewCookie) {
-    response.cookies.set('bolbuddy_user_id', userId, {
+    response.cookies.set('healthsathi_user_id', userId, {
       path: '/',
       maxAge: 60 * 60 * 24 * 365, // 1 year persistence
       sameSite: 'lax',

@@ -10,11 +10,11 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const cookieStore = await cookies();
-    const cookieUserId = cookieStore.get('bolbuddy_user_id')?.value;
+    const cookieUserId = cookieStore.get('healthsathi_user_id')?.value;
     const userId = body.userId || body.user_id || cookieUserId || 'default_user';
     const phoneNumber = body.phoneNumber || body.phone_number || '';
-    const scheduledTime = body.scheduledTime || body.scheduled_time || '20:00';
-    const practiceTopic = body.practiceTopic || body.practice_topic || 'Spoken English Practice';
+    const scheduledTime = body.scheduledTime || body.scheduled_time || '08:00';
+    const practiceTopic = body.practiceTopic || body.practice_topic || 'Health Reminder';
     const timezone = body.timezone || 'Asia/Kolkata';
     const action =
       body.action ||
@@ -60,7 +60,7 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const cookieStore = await cookies();
-    const cookieUserId = cookieStore.get('bolbuddy_user_id')?.value;
+    const cookieUserId = cookieStore.get('healthsathi_user_id')?.value;
     const userId = searchParams.get('userId') || cookieUserId;
 
     if (!userId) {

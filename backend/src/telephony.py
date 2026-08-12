@@ -1,7 +1,7 @@
 """
-Telephony and Outbound Calling Foundation for BolBuddy Voice Agent.
+Telephony and Outbound Calling Foundation for HealthSathi Voice Agent.
 
-Uses LiveKit Telephony / SIP Outbound API to initiate phone calls to learners.
+Uses LiveKit Telephony / SIP Outbound API to initiate scheduled health reminder calls to users.
 Reads all credentials from environment variables without hardcoding secrets.
 """
 

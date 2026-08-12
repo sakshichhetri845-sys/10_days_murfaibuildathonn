@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 
@@ -26,9 +27,6 @@ from db import get_or_create_user, init_db
 from escalation_tools import (
     create_escalation as fn_create_escalation,
 )
-from exercises import (
-    get_next_exercise as fn_get_next_exercise,
-)
 from memory_tools import (
     async_prefetch_user_memory,
 )
@@ -45,12 +43,7 @@ from memory_tools import (
     what_do_you_remember as fn_what_do_you_remember,
 )
 from prompts.system_prompt import SYSTEM_PROMPT
-from rag import (
-    search_learning_resources as fn_search_learning_resources,
-)
-from scoring import (
-    score_spoken_answer as fn_score_spoken_answer,
-)
+from rag import search_health_resources as fn_search_health_resources
 
 logger = logging.getLogger("agent")
 load_dotenv(".env.local")
@@ -98,6 +91,71 @@ def _prune_history(session: AgentSession, max_turns: int = 6) -> None:
         logger.warning(f"Chat context pruning exception: {e}")
 
 
+# ---------------------------------------------------------------------------
+# Triage levels — coarse classification for safe, non-diagnostic guidance
+# ---------------------------------------------------------------------------
+_TRIAGE_GUIDANCE: dict[str, dict[str, str]] = {
+    "self_care": {
+        "label": "Self-care",
+        "advice": (
+            "This sounds like it can be managed at home with rest, fluids, and over-the-counter "
+            "remedies. Monitor closely — if symptoms worsen or persist beyond 3 days, please "
+            "visit a clinic."
+        ),
+    },
+    "routine": {
+        "label": "Routine care",
+        "advice": (
+            "A visit to a local health post or PHC in the next few days would be helpful. "
+            "There is no immediate emergency, but don't delay too long."
+        ),
+    },
+    "soon": {
+        "label": "See a doctor soon",
+        "advice": (
+            "Please visit a clinic or PHC today or tomorrow. This shouldn't wait more than "
+            "24-48 hours."
+        ),
+    },
+    "urgent": {
+        "label": "Urgent care needed",
+        "advice": (
+            "Please go to the nearest hospital or emergency department as soon as possible, "
+            "or call 112 for emergency services."
+        ),
+    },
+}
+
+_URGENT_KEYWORDS = {
+    "chest pain", "difficulty breathing", "can't breathe", "unconscious",
+    "severe bleeding", "stroke", "heart attack", "seizure", "convulsion",
+    "not breathing", "no pulse",
+}
+_SOON_KEYWORDS = {
+    "high fever", "103", "104", "vomiting blood", "blood in stool",
+    "severe pain", "confusion", "disoriented", "can't walk", "dehydrated",
+}
+_ROUTINE_KEYWORDS = {
+    "fever", "cough", "cold", "rash", "stomach ache", "headache",
+    "diarrhea", "sore throat", "ear pain", "eye pain",
+}
+
+
+def _classify_symptoms(symptoms_text: str) -> str:
+    """Simple keyword-based pre-classifier. Returns triage level string."""
+    lower = symptoms_text.lower()
+    for kw in _URGENT_KEYWORDS:
+        if kw in lower:
+            return "urgent"
+    for kw in _SOON_KEYWORDS:
+        if kw in lower:
+            return "soon"
+    for kw in _ROUTINE_KEYWORDS:
+        if kw in lower:
+            return "routine"
+    return "self_care"
+
+
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(instructions=SYSTEM_PROMPT)
@@ -120,24 +178,20 @@ class Assistant(Agent):
         context: RunContext,
         name: str = "",
         language_preference: str = "",
-        level: str = "",
-        learning_goal: str = "",
-        topic_practiced: str = "",
-        recurring_challenge: str = "",
+        reminder_preference: str = "",
+        contact_preference: str = "",
         user_id: str = "",
     ) -> str:
-        """Save user memory facts (name, level, goal, challenge)."""
+        """Save user memory facts (name, language, reminder preference, contact preference). Requires user consent."""
         logger.info(
-            f"TOOL CALL: save_user_memory (name='{name}', goal='{learning_goal}')"
+            f"TOOL CALL: save_user_memory (name='{name}', reminder='{reminder_preference}')"
         )
         res = await fn_save_user_memory(
             context,
             name=name,
             language_preference=language_preference,
-            level=level,
-            learning_goal=learning_goal,
-            topic_practiced=topic_practiced,
-            recurring_challenge=recurring_challenge,
+            reminder_preference=reminder_preference,
+            contact_preference=contact_preference,
             user_id=user_id,
         )
         logger.info(f"TOOL COMPLETE: save_user_memory -> {res}")
@@ -149,7 +203,7 @@ class Assistant(Agent):
         context: RunContext,
         user_id: str = "",
     ) -> str:
-        """Delete saved user memory after explicit user confirmation."""
+        """Permanently delete saved user memory. Call ONLY AFTER the user gives explicit verbal confirmation (e.g. 'Yes', 'Delete it'). DO NOT invoke unless user has explicitly confirmed deletion."""
         logger.info(f"TOOL CALL: forget_my_data (user_id='{user_id}')")
         res = await fn_forget_my_data(context, user_id=user_id)
         logger.info(f"TOOL COMPLETE: forget_my_data -> {res}")
@@ -168,57 +222,139 @@ class Assistant(Agent):
         return res
 
     @function_tool
-    async def search_learning_resources(
+    async def search_health_resources(
         self,
         context: RunContext,
         query: str = "",
     ) -> str:
-        """Search learning resources for grammar rules, viva tips, or interview prep."""
-        logger.info(f"TOOL CALL: search_learning_resources (query='{query}')")
-        res = await fn_search_learning_resources(context, query=query)
-        logger.info("TOOL COMPLETE: search_learning_resources")
+        """Search health information resources for symptom guidance, doctor visit prep, or general wellness advice."""
+        logger.info(f"TOOL CALL: search_health_resources (query='{query}')")
+        res = await fn_search_health_resources(context, query=query)
+        logger.info("TOOL COMPLETE: search_health_resources")
         return res
 
     @function_tool
-    async def fetch_next_exercise(
+    async def symptom_to_triage(
         self,
         context: RunContext,
-        level: str = "beginner",
-        topic: str = "interview",
+        symptoms: str = "",
+        duration_days: int = 0,
+        severity: str = "mild",
     ) -> str:
-        """Return one speaking exercise for requested level and topic. Use only when learner requests practice or a new exercise."""
+        """
+        Classify the user's reported symptoms into a safe triage level and recommend
+        the appropriate next step.
+
+        IMPORTANT RULES:
+        - Do NOT diagnose any medical condition.
+        - Do NOT prescribe or recommend specific medications.
+        - Do NOT claim medical certainty.
+        - Use simple triage levels: self_care, routine, soon, urgent.
+
+        Parameters:
+            symptoms: Free-text description of the user's symptoms.
+            duration_days: How many days the symptoms have been present (0 = unknown).
+            severity: User's self-reported severity — 'mild', 'moderate', or 'severe'.
+        """
+        if not symptoms.strip():
+            return json.dumps(
+                {
+                    "level": "unknown",
+                    "label": "Insufficient information",
+                    "advice": "Please describe your symptoms so I can help you better.",
+                }
+            )
+
+        level = _classify_symptoms(symptoms)
+
+        if severity == "severe" and level in ("self_care", "routine"):
+            level = "soon"
+        if severity == "severe" and level == "soon":
+            level = "urgent"
+        if duration_days >= 7 and level == "self_care":
+            level = "routine"
+
+        guidance = _TRIAGE_GUIDANCE[level]
+        result = {
+            "level": level,
+            "label": guidance["label"],
+            "advice": guidance["advice"],
+            "disclaimer": (
+                "HealthSathi is not a doctor. This guidance is for general information only. "
+                "Always consult a qualified healthcare provider for medical decisions."
+            ),
+        }
         logger.info(
-            f"TOOL CALL: fetch_next_exercise (level='{level}', topic='{topic}')"
+            f"TOOL CALL: symptom_to_triage → level='{level}' "
+            f"(symptoms='{symptoms[:60]}...', severity='{severity}', days={duration_days})"
         )
-        res_dict = fn_get_next_exercise(level=level, topic=topic)
-        import json
-
-        res_str = json.dumps(res_dict)
-        logger.info("TOOL COMPLETE: fetch_next_exercise")
-        return res_str
+        return json.dumps(result, ensure_ascii=False)
 
     @function_tool
-    async def score_spoken_answer(
+    async def find_nearby_facility(
         self,
         context: RunContext,
-        question: str = "",
-        answer: str = "",
-        transcript: str = "",
-        practice_topic: str = "",
+        location: str = "",
+        facility_type: str = "any",
+        urgency: str = "routine",
     ) -> str:
-        """Evaluate a completed spoken answer. Use only when learner explicitly asks for feedback, evaluation, or a score."""
-        logger.info("TOOL CALL: score_spoken_answer")
-        res = await fn_score_spoken_answer(
-            context,
-            question=question,
-            answer=answer,
-            transcript=transcript,
-            practice_topic=practice_topic,
-        )
-        logger.info("TOOL COMPLETE: score_spoken_answer")
-        return res
+        """
+        Find an appropriate nearby health facility based on the user's location.
+        Returns guidance on the type of facility to visit — not real-time GPS lookup.
 
-    @function_tool
+        Parameters:
+            location: User's area, city, or district (e.g. 'Kathmandu', 'Lalitpur Ward 3').
+            facility_type: Preferred facility type — 'health_post', 'phc', 'clinic', 'hospital', or 'any'.
+            urgency: Triage urgency level — 'self_care', 'routine', 'soon', or 'urgent'.
+        RESPONSE RULE: You MUST explicitly mention the user's location name (e.g. 'In Kathmandu...') in your spoken response.
+        """
+        facility_map = {
+            "self_care": {
+                "recommended": "Local health post or pharmacy",
+                "tip": "For mild symptoms, your nearest health post or community pharmacy can help.",
+            },
+            "routine": {
+                "recommended": "Primary Health Centre (PHC) or community clinic",
+                "tip": "Visit your local PHC or registered clinic. Bring your health card if you have one.",
+            },
+            "soon": {
+                "recommended": "District hospital or specialist clinic",
+                "tip": (
+                    "Please visit a district hospital or specialist clinic today. "
+                    "If possible, call ahead to check wait times."
+                ),
+            },
+            "urgent": {
+                "recommended": "Nearest hospital emergency department",
+                "tip": (
+                    "Go to the nearest hospital emergency immediately, or call 112 for an ambulance. "
+                    "Do not wait."
+                ),
+            },
+        }
+
+        guidance = facility_map.get(urgency, facility_map["routine"])
+        location_note = (
+            f"In or near {location.strip()}: " if location.strip() else ""
+        )
+
+        result = {
+            "location_hint": location.strip() or "your area",
+            "recommended_facility": guidance["recommended"],
+            "tip": f"{location_note}{guidance['tip']}",
+            "emergency_number": "112",
+            "disclaimer": (
+                "HealthSathi cannot verify real-time facility availability. "
+                "Please confirm hours and services directly with the facility."
+            ),
+        }
+        logger.info(
+            f"TOOL CALL: find_nearby_facility "
+            f"(location='{location}', type='{facility_type}', urgency='{urgency}')"
+        )
+        return json.dumps(result, ensure_ascii=False)
+
+
     async def end_call(
         self,
         context: RunContext,
@@ -250,29 +386,25 @@ class Assistant(Agent):
     async def create_escalation(
         self,
         context: RunContext,
-        who_needs_help: str = "",
-        reason_type: str = "learner_distress",
-        issue_summary: str = "",
-        checked_by_agent: str = "",
+        user_confirmed_consent: bool = False,
+        reason_type: str = "health_concern",
+        issue_summary: str = "User requested human health support",
         urgency: str = "medium",
-        preferred_language: str = "English",
-        preferred_contact: str = "phone",
-        user_id: str = "",
     ) -> str:
-        """Create a human help request when learner is upset/anxious or explicitly asks for a human teacher. Call ONLY AFTER user explicitly gives permission."""
+        """Submit a human health support request.
+        ONLY call this tool if the user explicitly confirmed permission ("Yes", "Sure", "Submit it").
+        RETURNS: JSON containing `reference_id` (e.g. HS-4821) and `status`.
+        RESPONSE RULE: Speak the exact returned `reference_id` to the user.
+        """
         logger.info(
-            f"TOOL CALL: create_escalation (reason_type='{reason_type}', urgency='{urgency}')"
+            f"TOOL CALL: create_escalation (consent={user_confirmed_consent}, reason='{reason_type}', urgency='{urgency}')"
         )
         res = await fn_create_escalation(
             context=context,
-            who_needs_help=who_needs_help,
+            user_confirmed_consent=user_confirmed_consent,
             reason_type=reason_type,
             issue_summary=issue_summary,
-            checked_by_agent=checked_by_agent,
             urgency=urgency,
-            preferred_language=preferred_language,
-            preferred_contact=preferred_contact,
-            user_id=user_id,
         )
         logger.info(f"TOOL COMPLETE: create_escalation -> {res}")
         return res
@@ -292,7 +424,7 @@ def _clean_tts_text(text: str) -> str:
     text = re.sub(r"'[\w_]+':\s*'[^']+'", "", text)
     # Remove leaked tool names or metadata parameter labels
     text = re.sub(
-        r"\b(save_user_memory|lookup_user_memory|forget_my_data|what_do_you_remember|fetch_next_exercise|score_spoken_answer|search_learning_resources|skill_level|topic_practiced|recurring_challenge|user_id|master_user)\b",
+        r"\b(save_user_memory|lookup_user_memory|forget_my_data|what_do_you_remember|search_health_resources|search_learning_resources|symptom_to_triage|find_nearby_facility|create_escalation|user_id|master_user)\b",
         "",
         text,
         flags=re.IGNORECASE,
@@ -336,30 +468,34 @@ def _clean_tts_text(text: str) -> str:
         return ""
     import re
 
-    # 1. Remove XML/function tags e.g. </function>, <function=...>, <tool_call...>, </tool_call>
+    # 1. Remove XML/function tags e.g. </function>, (function=...>, <function=...>, <tool_call...>
+    text = re.sub(
+        r"\(?\s*function\s*=\s*\w+[^>)]*[\)>]?", "", text, flags=re.IGNORECASE
+    )
     text = re.sub(
         r"</?(?:function|tool_call|tool)[^>]*>", "", text, flags=re.IGNORECASE
     )
+    text = re.sub(r"\(?\s*function[\s\S]*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"<[^>]+>", "", text)
 
     # 2. Remove any JSON structures or raw parameter dictionaries (complete OR unclosed)
     text = re.sub(
-        r"\{\s*\"(?:name|parameters|who_needs_help|reason_type|issue_summary|checked_by_agent|urgency|preferred_language|preferred_contact|user_id)\"[\s\S]*",
+        r"\{\s*\"(?:name|parameters|symptoms|duration_days|severity|facility_type|location|urgency|who_needs_help|reason_type|issue_summary|checked_by_agent|preferred_language|preferred_contact|user_id|reference_id|key|value|category|query)\"[\s\S]*",
         "",
         text,
         flags=re.IGNORECASE,
     )
+    text = re.sub(r"\{\s*\"[^\"]+\"\s*:[\s\S]*", "", text)
     text = re.sub(r"\{[\s\S]*?\}", "", text)
 
-    # 3. Remove raw function calls e.g. create_escalation(...)
+    # 3. Remove raw function calls e.g. symptom_to_triage(...), find_nearby_facility(...)
     text = re.sub(
-        r"\b(?:create_escalation|score_spoken_answer|fetch_next_exercise|lookup_user_memory)\b[\s\S]*",
+        r"\b(?:symptom_to_triage|find_nearby_facility|create_escalation|search_health_resources|save_user_memory|lookup_user_memory|forget_my_data)\b[\s\S]*",
         "",
         text,
         flags=re.IGNORECASE,
     )
     text = re.sub(r"\b\w+_\w+\([^)]*\)", "", text)
-    text = re.sub(r"function\s*[:=]?\s*\w+", "", text, flags=re.IGNORECASE)
 
     # 4. Strip markdown formatting symbols
     text = re.sub(r"[`*_~#]", "", text)
@@ -376,6 +512,7 @@ def prewarm(proc: JobProcess):
         min_silence_duration=0.2,
         prefix_padding_duration=0.2,
         activation_threshold=0.3,
+        sample_rate=16000,
     )
     init_db()
 
@@ -464,7 +601,7 @@ async def my_agent(ctx: JobContext):
         "llm": llm,
         # Text-to-speech (TTS) via Murf Falcon (min_sentence_len=1 for immediate audio streaming)
         "tts": murf.TTS(
-            voice="Anisha",
+            voice="Samar",
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=1),
             text_pacing=True,
@@ -570,20 +707,16 @@ async def my_agent(ctx: JobContext):
             is_outbound = True
 
         name = user_data.get("name") if user_data else None
-        facts = user_data.get("facts") if user_data else {}
-        goal = facts.get("learning_goal") if facts else None
 
         if is_outbound:
             if name:
-                greeting_text = f"Hi {name}, this is BolBuddy, your English practice companion. You scheduled your daily practice call for this time. If you'd rather not practice now, just say so and I'll end the call. Want to practice for a few minutes?"
+                greeting_text = f"Hi {name}, this is HealthSathi, your health support companion. I'm calling for your scheduled health reminder. Is this a good time to talk? You can say stop at any time to end the call."
             else:
-                greeting_text = "Hi, this is BolBuddy, your English practice companion. You scheduled your daily practice call for this time. If you'd rather not practice now, just say so and I'll end the call. Want to practice for a few minutes?"
+                greeting_text = "Hi, this is HealthSathi, your health support companion. I'm calling for your scheduled health reminder. Is this a good time to talk? You can say stop at any time to end the call."
         elif name:
-            greeting_text = f"Welcome back {name}! It's great to see you again. What would you like to practice today?"
-        elif goal and goal != "everyday conversation":
-            greeting_text = f"Hello! Ready to practice your {goal} today?"
+            greeting_text = f"Welcome back {name}! How are you feeling today?"
         else:
-            greeting_text = "Welcome! I'm BolBuddy, your English speaking companion. What's your name, and what would you like to practice today?"
+            greeting_text = "Hi, I'm HealthSathi, your friendly voice companion for everyday health guidance. How can I help you today?"
 
         async def _deliver_greeting():
             try:

@@ -130,10 +130,10 @@ export function getSandboxTokenSource(appConfig: AppConfig) {
 export function getPersistentUserId(): string {
   if (typeof window === 'undefined') return '';
   try {
-    let userId = localStorage.getItem('bolbuddy_user_id');
+    let userId = localStorage.getItem('healthsathi_user_id');
     if (!userId) {
-      userId = `bolbuddy_user_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
-      localStorage.setItem('bolbuddy_user_id', userId);
+      userId = `healthsathi_user_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
+      localStorage.setItem('healthsathi_user_id', userId);
     }
     return userId;
   } catch {
@@ -147,7 +147,7 @@ export function getPersistentUserId(): string {
 export function resetPersistentUserId(): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.removeItem('bolbuddy_user_id');
+    localStorage.removeItem('healthsathi_user_id');
   } catch {
     // Ignore storage errors
   }

@@ -1,5 +1,5 @@
 """
-Deterministic Outbound Call State Machine for BolBuddy.
+Deterministic Outbound Call State Machine for HealthSathi.
 
 Python backend controls state transitions deterministically.
 The LLM only generates natural language within the current state.

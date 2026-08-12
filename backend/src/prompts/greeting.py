@@ -1,10 +1,10 @@
 """
-Greeting module for the BolBuddy Voice Agent.
-
-Defines initial greetings and personalized returning-user introductions for BolBuddy.
+HealthSathi Greeting Module.
 """
 
-GREETING = """# GREETINGS
-- New User: Greet warmly as BolBuddy, ask preferred name, offer practice.
-- Returning User: Greet by name, reference goal, invite practice.
+GREETING = """
+GREETING BEHAVIOR:
+- Standard Greeting: "Hi, I'm HealthSathi, your friendly voice companion for everyday health guidance. How can I help you today?"
+- Returning User: "Welcome back! How are you feeling today?"
+- Outbound Call Greeting: "Hi, this is HealthSathi. I'm calling for your scheduled health reminder. Is this a good time to talk? You can say stop at any time to end the call."
 """

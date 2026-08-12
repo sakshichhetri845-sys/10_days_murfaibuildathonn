@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const cookieStore = await cookies();
-    const cookieUserId = cookieStore.get('bolbuddy_user_id')?.value;
+    const cookieUserId = cookieStore.get('healthsathi_user_id')?.value;
     const userId = body.userId || cookieUserId;
 
     if (!userId) {
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     });
 
     const response = NextResponse.json({ success: true, userId });
-    response.cookies.delete('bolbuddy_user_id');
+    response.cookies.delete('healthsathi_user_id');
     return response;
   } catch (err) {
     console.error('Forget data error:', err);

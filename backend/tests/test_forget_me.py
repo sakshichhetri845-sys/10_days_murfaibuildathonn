@@ -29,14 +29,14 @@ def temp_db():
         db_path = tf.name
 
     init_db(db_path=db_path)
-    os.environ["BOLBUDDY_DB_PATH"] = db_path
+    os.environ["HEALTHSATHI_DB_PATH"] = db_path
     clear_memory_cache()
 
     yield db_path
 
     clear_memory_cache()
-    if "BOLBUDDY_DB_PATH" in os.environ:
-        del os.environ["BOLBUDDY_DB_PATH"]
+    if "HEALTHSATHI_DB_PATH" in os.environ:
+        del os.environ["HEALTHSATHI_DB_PATH"]
 
     try:
         if os.path.exists(db_path):
@@ -168,10 +168,14 @@ async def test_forget_me_agent_confirmation_dialogue() -> None:
         await msg_assert.is_message(role="assistant").judge(
             eval_llm,
             intent="""
-            Acknowledges the user's deletion request politely.
-            Asks explicitly for verbal confirmation BEFORE deleting any data.
-            Does NOT claim to have already deleted data without asking first.
-            Does NOT expose internal database jargon or technical details.
+            Responds to a user asking HealthSathi to forget all their data.
+            The response must:
+            - Be polite and acknowledge the request
+            - Ask for explicit verbal confirmation before proceeding (e.g. 'please confirm', 'just to confirm', 'are you sure?')
+            - NOT silently delete data without any confirmation at all
+            - NOT expose internal database jargon or technical details
+            Acceptable phrasings include announcing what will happen AND asking to confirm in the same sentence.
+            Unacceptable: deleting without asking any confirmation question whatsoever.
             """,
         )
 

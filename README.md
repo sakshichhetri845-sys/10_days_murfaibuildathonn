@@ -1,21 +1,27 @@
-# BolBuddy — Voice-First AI Companion for Spoken English & Viva Prep
+# HealthSathi — Voice-First AI Companion for Everyday Health Guidance
 
-**BolBuddy** is a production-grade, real-time voice AI agent designed to help learners practice spoken English, prepare for job interviews and viva exams, track speaking progress over time, receive scheduled daily phone calls, and connect with human mentors when assistance is required.
+**HealthSathi** is a production-grade, real-time voice AI agent designed for the **Health Access** track. It helps users understand symptoms, perform safe symptom-to-triage classification, find nearby primary health centres and clinics, remember useful non-sensitive preferences, schedule health reminder calls, and connect with human healthcare support when necessary.
 
-Powered by **LiveKit Agents SDK**, **Murf Falcon TTS** (Anisha Indian English voice), **Deepgram Nova-3 Multilingual STT**, and **Gemini / OpenRouter LLMs**.
+Powered by **LiveKit Agents SDK**, **Murf Falcon TTS** (Anisha voice), **Deepgram Nova-3 Multilingual STT**, and **Gemini / NVIDIA / Groq / OpenRouter LLMs**.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Murf Falcon](https://img.shields.io/badge/TTS-Murf%20Falcon-6366F1)](https://murf.ai/api/docs/text-to-speech/streaming) [![LiveKit](https://img.shields.io/badge/Transport-LiveKit-002cf2)](https://docs.livekit.io) [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Murf Falcon](https://img.shields.io/badge/TTS-Murf%20Falcon-14B8A6)](https://murf.ai/api/docs/text-to-speech/streaming) [![LiveKit](https://img.shields.io/badge/Transport-LiveKit-002cf2)](https://docs.livekit.io) [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+
+---
+
+> [!IMPORTANT]
+> **Health Safety Boundary**: HealthSathi is NOT a doctor, diagnostic system, or emergency medical provider. It never diagnoses diseases, prescribes medication, or replaces professional medical care. For medical emergencies, users are directed to call **112** or visit a hospital immediately.
 
 ---
 
 ## 🌟 Key Features & Capabilities
 
-- 🎙️ **Real-Time Duplex Audio Streaming**: Instant voice-to-voice interaction using Murf Falcon TTS (55ms latency) and Deepgram Nova-3 Multilingual STT (supporting English, Hindi, and Hinglish).
-- 🧠 **Persistent User Memory & Context**: SQLite disk-backed user memory (`bolbuddy_memory.db`) storing learner names, learning goals, preferred topics, and past practice history.
-- 📚 **RAG & Learning Resources**: In-memory RAG search engine (`search_learning_resources`) providing instant grammar explanations, viva tips, and sample interview responses.
-- 📊 **Structured Practice & Answer Scoring**: Speaking exercises tool (`fetch_next_exercise`) and automated spoken answer evaluation (`score_spoken_answer`) returning structured scores (1-10), strengths, and improvements.
-- 📞 **Outbound Telephony & Daily Call Scheduler**: Scheduled automated practice calls to learner phone numbers via Linphone SIP trunk (`OUTBOUND_CALL_ENABLED`).
-- 🚨 **Human Escalation & Discord Delivery (Day 7)**: Detects learner distress or human teacher requests, asks explicit permission, scrubs PII, dispatches real-time notifications to a **Discord Webhook channel**, and displays tickets in an internal **Human Help Dashboard UI**.
+- 🎙️ **Real-Time Duplex Audio Streaming**: Instant voice-to-voice interaction using Murf Falcon TTS (Anisha voice) and Deepgram Nova-3 Multilingual STT (supporting English, Hindi, and Hinglish).
+- 🏥 **Safe Symptom Triage Classifier**: `symptom_to_triage` classifies reported symptoms into safe urgency levels (`self_care`, `routine`, `soon`, `urgent`) without diagnosing conditions or prescribing treatments.
+- 📍 **Healthcare Facility Lookup**: `find_nearby_facility` recommends appropriate local facilities (health posts, PHCs, general clinics, or hospital emergency departments) based on urgency and location.
+- 🧠 **Persistent User Memory & Context**: SQLite disk-backed memory (`healthsathi_memory.db`) storing user names, language preferences, reminder preferences, and contact preferences with explicit consent.
+- 📚 **RAG & Health Knowledge Resources**: Knowledge engine (`search_health_resources`) retrieving verified guidance on symptom basics, doctor visit prep, and emergency warning signs.
+- 📞 **Outbound Telephony & Health Reminders**: Scheduled automated health reminder and follow-up calls to user phone numbers via LiveKit SIP trunk.
+- 🚨 **Human Escalation & Discord Delivery**: Detects red-flag emergency symptoms or explicit requests for human support, asks consent, scrubs PII, dispatches real-time alerts to a **Discord Webhook channel**, and tracks tickets in the frontend UI.
 
 ---
 
@@ -24,15 +30,15 @@ Powered by **LiveKit Agents SDK**, **Murf Falcon TTS** (Anisha Indian English vo
 ```mermaid
 flowchart TD
     subgraph Client ["Client Layer"]
-        A[🎙️ User Audio / Phone Call] -->|RTC Stream / SIP| B[LiveKit Cloud / SIP Trunk]
-        C[🖥️ Next.js Web UI] <-->|Token API / Escalations| D[Next.js App Server]
+        A[🎙️ User Voice / Phone Call] -->|RTC Stream / SIP| B[LiveKit Cloud / SIP Trunk]
+        C[🖥️ HealthSathi Next.js Web UI] <-->|Token API / Escalations| D[Next.js App Server]
     end
 
-    subgraph Backend ["BolBuddy Voice Engine"]
+    subgraph Backend ["HealthSathi Engine"]
         B <-->|Duplex Audio| E[LiveKit Agents SDK]
         E -->|STT| F[Deepgram Nova-3 STT]
-        F -->|Transcribed Text| G[LLM Engine - Gemini / OpenRouter]
-        G -->|Tool Execution| H[Function Tools]
+        F -->|Transcribed Text| G[LLM Engine - Multi-Provider]
+        G -->|Tool Execution| H[Function Tools - Triage / RAG / Facility]
         H -->|Memory / RAG| I[(SQLite DB & Memory Cache)]
         H -->|Human Escalation| J[Discord Webhook Dispatcher]
         G -->|Response Text| K[Murf Falcon TTS - Anisha Voice]
@@ -41,207 +47,61 @@ flowchart TD
 
     subgraph Channels ["Human Escalation Channels"]
         J -->|POST Sanitized JSON| L[🚨 Discord Webhook Channel]
-        D <-->|Fetch / Update Status| M[📋 Human Help UI Dashboard]
+        D <-->|Fetch / Update Status| M[📋 Human Help Drawer UI]
     end
 
     style A fill:#334155,stroke:#64748B,color:#fff
     style B fill:#1E293B,stroke:#475569,color:#fff
     style C fill:#0F172A,stroke:#334155,color:#fff
-    style G fill:#4338CA,stroke:#6366F1,color:#fff
+    style G fill:#0D9488,stroke:#14B8A6,color:#fff
     style K fill:#047857,stroke:#10B981,color:#fff
     style L fill:#B45309,stroke:#F59E0B,color:#fff
-    style M fill:#6D28D9,stroke:#8B5CF6,color:#fff
+    style M fill:#0F766E,stroke:#2DD4BF,color:#fff
 ```
 
 ---
 
-## 🗓 7 Days Progress (#VoiceForBharat Challenge)
+## 🗓 7 Days Progress (#VoiceForBharat Health Access Challenge)
 
-| Day | Focus Area | Key Deliverables & Code |
+| Day | Focus Area | Key Deliverables & Implementation |
 | :---: | :--- | :--- |
-| **[Day 1](./day_1/README.md)** | Basic Voice Agent Pipeline | Real-time duplex audio streaming using LiveKit Agents, Deepgram Nova-3 STT, and Murf Falcon TTS. |
-| **[Day 2](./day_2/README.md)** | Personality & Safety Guardrails | BolBuddy Indian English companion persona, short conversational style, and safety guardrails. |
-| **[Day 3](./day_3/README.md)** | Voice UI & Web Interface | Next.js 15 web interface with animated voice orb visualizer, mic controls, and live transcript view. |
-| **[Day 4](./day_4/README.md)** | Persistent Memory & RAG | SQLite disk-backed user memory (`bolbuddy_memory.db`), consent-based saving, verbal confirmation before deletion, and RAG resource lookup. |
-| **[Day 5](./day_5/README.md)** | Structured Tools & Evaluation | Function tools (`fetch_next_exercise` & `score_spoken_answer`), curated exercise dataset, single-turn LLM response, zero tool syntax leakage, and multi-tier LLM failover. |
-| **[Day 6](./day6/README.md)** | Outbound Telephony & Scheduling | Scheduled daily practice calls at learner-selected times via LiveKit SIP Outbound Trunk (Linphone SIP), deterministic state machine, 3-part opening, and short spoken practice. |
-| **[Day 7](./day_7/README.md)** | Human Escalation & Discord Channel | Learner distress & teacher request detection, 7-step consent protocol, Discord webhook channel delivery (`DISCORD_ESCALATION_WEBHOOK_URL`), PII scrubbing, and internal Human Help dashboard UI. |
+| **[Day 1](./day_1/README.md)** | Basic Voice Agent Pipeline | Real-time duplex audio streaming using LiveKit Agents, Deepgram Nova-3 STT, Murf Falcon TTS (Anisha voice), and initial HealthSathi identity. |
+| **[Day 2](./day_2/README.md)** | Personality & Safety Guardrails | HealthSathi companion persona, non-diagnostic safety guardrails, 1-question-at-a-time flow, and Hinglish support. |
+| **[Day 3](./day_3/README.md)** | Voice UI & Web Interface | Healthcare teal visual theme (`#F0FAFA`, `#14B8A6`), quick action cards, non-medical disclaimer banner, and state orb visualizer (Ready, Connecting, Listening, Thinking, Speaking). |
+| **[Day 4](./day_4/README.md)** | Persistent Memory & Privacy | SQLite user memory (`healthsathi_memory.db`), consent-based saving, verbal confirmation before memory deletion, and non-sensitive preference storage. |
+| **[Day 5](./day_5/README.md)** | Health Tools & Triage | Function tools (`symptom_to_triage`, `find_nearby_facility`, `search_health_resources`), safe 4-level triage, facility type recommendation, and zero diagnostic claim rule. |
+| **[Day 6](./day_6/README.md)** | Outbound Calls & Reminders | Scheduled health reminder calls via LiveKit SIP trunk, clear 3-part call opening, immediate stop request handling, and call outcome logging. |
+| **[Day 7](./day_7/README.md)** | Human Escalation & Discord Channel | Emergency red-flag and explicit support request triggers, 7-step consent protocol, PII scrubbing (`_redact_pii`), reference ID generation (`ESC-XXXX`), and Discord webhook integration. |
 
 ---
 
 ## 🚨 Day 7 Feature Spotlight: Human Escalation & Discord Channel
 
-BolBuddy knows its boundaries and recognizes when a learner needs real human help:
+HealthSathi knows its boundaries and recognizes when a situation requires a human healthcare coordinator:
 
 ### 1. Escalation Triggers
-- **Learner Distress**: Learner expresses severe anxiety, frustration, or inability to continue practicing.
-- **Human Teacher Request**: Learner explicitly requests to talk to a real human teacher, coach, or English tutor.
+- **Red-Flag Symptoms / Emergency**: Severe chest pain, breathing difficulty, uncontrollable bleeding, stroke, or unresponsiveness.
+- **Explicit Support Request**: User asks to speak with a human doctor, health worker, or coordinator.
 
 ### 2. 7-Step Protocol
-1. **Detect**: Identifies distress or teacher request without invoking tools prematurely.
-2. **Ask Permission**: Speaks a clean, friendly question (*"I can send your concern, language, and preferred follow-up method to our human support team. Is that okay?"*).
+1. **Detect**: Identifies red flags or explicit requests without calling tools prematurely.
+2. **Ask Permission**: Asks explicit consent (*"I can create a support request for a human health coordinator. Is it okay to share your name and symptom summary?"*).
 3. **Consent YES**: Executes `create_escalation` silently in the backend.
-4. **Consent NO**: Respects the learner's decision, creates no ticket, and continues conversation.
-5. **PII Sanitization**: Automatically redacts passwords, OTPs, PINs, and bank details.
-6. **Discord Webhook POST**: Dispatches formatted payload to `DISCORD_ESCALATION_WEBHOOK_URL`.
-7. **Learner Confirmation**: Speaks honest next step (*"Your support request has been initialized. Your reference ID is ESC-XXXX. A human teacher will review your request and contact you within 24 hours."*).
-
-### 3. Real Discord Notification Sample
-```text
-🚨 New BolBuddy Human Help Request
-
-Reference ID: ESC-1042
-Reason: Human Teacher Request
-Urgency: Medium
-Language: English
-Learner: Sakshyam
-Preferred Follow-up: Voice call
-
-Summary:
-Learner requested one-on-one help from a human English teacher.
-
-What BolBuddy Already Checked:
-Normal practice guidance was provided before escalation.
-
-Status: OPEN
-```
+4. **Consent NO**: Respects user privacy, creates no ticket, and provides safe general advice.
+5. **PII Sanitization**: Automatically redacts passwords, OTPs, PINs, and financial account numbers.
+6. **Discord Webhook POST**: Dispatches formatted payload to `DISCORD_WEBHOOK_URL`.
+7. **Confirmation**: Returns unique reference ID (`ESC-XXXX`) and clear, honest next steps.
 
 ---
 
-## 🚀 Quickstart & Setup Guide
+## 🧪 Testing
 
-### Prerequisites
-- **Python 3.10+** & **[uv](https://docs.astral.sh/uv/)** package manager
-- **Node.js 18+** & **pnpm** package manager
-- LiveKit Cloud account & Murf API key
-
-### 1. Clone Repository
-```bash
-git clone https://github.com/sakshyambhttr-cyber/10_days_voice_agent.git
-cd murf-livekit-starter
-```
-
-### 2. Configure Environment Variables
-Create `.env.local` in `backend/` and `frontend/`:
-
-```ini
-# LiveKit Cloud Credentials
-LIVEKIT_URL=wss://your-project.livekit.cloud
-LIVEKIT_API_KEY=your_api_key
-LIVEKIT_API_SECRET=your_api_secret
-
-# AI API Keys
-MURF_API_KEY=your_murf_key
-DEEPGRAM_API_KEY=your_deepgram_key
-GOOGLE_API_KEY=your_google_gemini_key
-OPENROUTER_API_KEY=your_openrouter_key
-
-# Day 7 Human Escalation Discord Webhook
-DISCORD_ESCALATION_WEBHOOK_URL=https://discord.com/api/webhooks/your_webhook_url
-
-# Day 6 Outbound Telephony (Linphone SIP)
-LIVEKIT_SIP_OUTBOUND_TRUNK_ID=your_trunk_id
-LINPHONE_USERNAME=your_linphone_user
-LINPHONE_PASSWORD=your_linphone_pass
-LINPHONE_DOMAIN=sip.linphone.org
-OUTBOUND_CALL_ENABLED=true
-```
-
-### 3. Install & Run Application
-
-**Option A — All-in-One Startup Script (Recommended):**
-```powershell
-# Windows PowerShell
-.\start_app.ps1
-
-# macOS / Linux
-chmod +x start_app.sh
-./start_app.sh
-```
-
-**Option B — Separate Terminals:**
-```bash
-# Terminal 1: Backend Agent
-cd backend
-uv sync
-uv run python src/agent.py dev
-
-# Terminal 2: Next.js Frontend
-cd frontend
-pnpm install
-pnpm dev
-```
-
-Open **http://localhost:3000** in your browser, click **Talk to BolBuddy**, allow microphone permissions, and start practicing!
-
----
-
-## 🧪 Automated Testing & Code Quality
-
-BolBuddy features a comprehensive automated test suite including unit tests, API tests, and LLM-as-judge evaluation tests.
+Run the automated test suite:
 
 ```bash
 cd backend
+uv run ruff check .
 uv run pytest
 ```
 
-```text
-============================= test session starts =============================
-collected 133 items
-
-test_keys.py ...                                                         [  2%]
-tests/test_agent.py .....                                                [  6%]
-tests/test_async_memory.py .....                                         [  9%]
-tests/test_call_outcomes.py .........                                    [ 16%]
-tests/test_consent.py ......                                             [ 21%]
-tests/test_day4_two_calls.py .                                           [ 21%]
-tests/test_escalation.py ........                                        [ 27%]
-tests/test_exercise_tool.py .......                                      [ 33%]
-tests/test_final_integration.py ..                                       [ 34%]
-...
-=========================== 133 passed in 167.32s ===========================
-```
-
-- **Ruff Python Linting**: `uv run ruff check src/ tests/` → `All checks passed!`
-- **Frontend ESLint & Prettier**: `pnpm lint` & `pnpm format` → Passed cleanly.
-
----
-
-## 📄 Repository Structure
-
-```text
-murf-livekit-starter/
-├── backend/                 # Python voice agent (LiveKit Agents + Murf Falcon)
-│   ├── src/
-│   │   ├── agent.py         # Primary voice pipeline entrypoint & function tools
-│   │   ├── escalation_tools.py # Human escalation, PII scrubbing, Discord webhook
-│   │   ├── db.py            # SQLite database schema (memory & escalations)
-│   │   ├── memory_tools.py  # User context memory & consent handlers
-│   │   ├── outbound_agent.py# Outbound telephony SIP call agent
-│   │   └── prompts/         # System prompts and persona definitions
-│   ├── tests/               # 133 automated pytest unit & LLM evaluation tests
-│   └── pyproject.toml       # Python dependencies (uv)
-├── frontend/                # Next.js 15 UI for voice interaction
-│   ├── app/                 # Next.js pages and API routes (/api/token, /api/escalations)
-│   ├── components/          # UI components (agents-ui, bolbuddy-session-view, escalations-drawer)
-│   └── package.json         # Node dependencies (pnpm)
-├── day_1/ ... day_7/        # Progress snapshots & documentation for each day
-├── start_app.ps1            # Windows all-in-one launcher script
-├── start_app.sh             # Linux/macOS all-in-one launcher script
-└── README.md                # Main repository documentation
-```
-
----
-
-## 🔗 Useful Links & References
-
-- [Murf Falcon TTS API](https://murf.ai/api/docs/text-to-speech/streaming)
-- [Murf Voice Library](https://murf.ai/api/docs/voices-styles/voice-library)
-- [LiveKit Agents SDK](https://docs.livekit.io/agents)
-- [Deepgram STT Documentation](https://developers.deepgram.com)
-
----
-
-## 📜 License
-
-This project is licensed under the **MIT License**.
+The test suite includes 123 automated tests covering memory consent, symptom triage, facility lookup, PII scrubbing, escalation workflow, and multilingual voice capabilities.

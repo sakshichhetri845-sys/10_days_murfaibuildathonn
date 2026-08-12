@@ -1,5 +1,5 @@
 """
-Outbound Practice Call Trigger and Scheduler Module for BolBuddy Voice Agent.
+Outbound Health Reminder Call Trigger and Scheduler Module for HealthSathi Voice Agent.
 
 Provides schedule registration, manual test triggers for dev/testing,
 and outbound call dispatch management integrated with persistent memory.
@@ -12,7 +12,7 @@ from typing import Any, Optional
 from db import (
     create_scheduled_call,
     get_user,
-    save_learner_outbound_preferences,
+    save_health_outbound_preferences,
     update_call_status,
 )
 from telephony import (
@@ -24,36 +24,34 @@ from telephony import (
 logger = logging.getLogger("agent.outbound")
 
 
-def schedule_outbound_practice(
+def schedule_outbound_reminder(
     user_id: str,
     phone_number: str,
     scheduled_time: str,
     name: Optional[str] = None,
 ) -> dict[str, Any]:
     """
-    Register a learner's preferred practice time and phone number for outbound calling.
+    Register a user's preferred reminder time and phone number for outbound health reminder calls.
     Saves preferences and creates a scheduled call entry.
     """
     if not user_id or not user_id.strip():
-        raise ValueError("user_id is required for scheduling practice calls.")
+        raise ValueError("user_id is required for scheduling reminder calls.")
     if not phone_number or not phone_number.strip():
-        raise ValueError("phone_number is required for scheduling practice calls.")
+        raise ValueError("phone_number is required for scheduling reminder calls.")
     if not scheduled_time or not scheduled_time.strip():
-        raise ValueError("scheduled_time is required for scheduling practice calls.")
+        raise ValueError("scheduled_time is required for scheduling reminder calls.")
 
     uid = user_id.strip()
     phone = phone_number.strip()
     sched = scheduled_time.strip()
 
-    # Save to user memory table
-    save_learner_outbound_preferences(
+    save_health_outbound_preferences(
         user_id=uid,
         phone_number=phone,
         preferred_practice_time=sched,
         name=name,
     )
 
-    # Save to scheduled calls table
     scheduled_record = create_scheduled_call(
         user_id=uid,
         phone_number=phone,
@@ -62,7 +60,7 @@ def schedule_outbound_practice(
 
     masked_phone = mask_phone_number(phone)
     logger.info(
-        f"Scheduled practice call for user_id='{uid}', phone='{masked_phone}', scheduled_time='{sched}'"
+        f"Scheduled health reminder call for user_id='{uid}', phone='{masked_phone}', scheduled_time='{sched}'"
     )
 
     return {
@@ -75,7 +73,17 @@ def schedule_outbound_practice(
     }
 
 
-async def trigger_outbound_practice(
+def schedule_outbound_practice(
+    user_id: str,
+    phone_number: str,
+    scheduled_time: str,
+    name: Optional[str] = None,
+) -> dict[str, Any]:
+    """Backward compatible alias for schedule_outbound_reminder."""
+    return schedule_outbound_reminder(user_id, phone_number, scheduled_time, name)
+
+
+async def trigger_outbound_reminder(
     user_id: str,
     phone_number: Optional[str] = None,
     name: Optional[str] = None,
@@ -84,11 +92,10 @@ async def trigger_outbound_practice(
     db_path: Optional[str] = None,
 ) -> dict[str, Any]:
     """
-    Manual test trigger for development to initiate an outbound practice call immediately.
-    If phone_number is not supplied, looks up stored phone_number from learner DB record.
+    Manual test trigger for development to initiate an outbound health reminder call immediately.
     """
     if not user_id or not user_id.strip():
-        raise ValueError("user_id is required to trigger outbound practice call.")
+        raise ValueError("user_id is required to trigger outbound reminder call.")
 
     uid = user_id.strip()
     user_record = get_user(uid)
@@ -198,6 +205,9 @@ async def trigger_outbound_practice(
             "status": "PROVIDER_ERROR",
             "error": str(err),
         }
+
+
+trigger_outbound_practice = trigger_outbound_reminder
 
 
 VALID_CALL_OUTCOMES = {
@@ -347,7 +357,7 @@ def opt_out_user_from_practice_calls(
             cancelled_count += 1
 
     # Save opt-out state in user_memory DB record
-    save_learner_outbound_preferences(
+    save_health_outbound_preferences(
         user_id=uid,
         phone_number="",
         preferred_practice_time="OPTED_OUT",

@@ -1,20 +1,15 @@
 """
-Tests for Phase 8 — Multilingual Support on Outbound Voice Practice Calls.
+Tests for Multilingual Support on Outbound Voice Calls for HealthSathi.
 """
 
 from prompts.system_prompt import SYSTEM_PROMPT
 
 
 def test_multilingual_system_prompt_rules():
-    """Verify system prompt includes Phase 8 Hinglish and zero forced language switching rules."""
-    assert "LANGUAGE" in SYSTEM_PROMPT
+    """Verify system prompt includes natural Hinglish and Hindi rules without forced language switching."""
+    assert "HealthSathi" in SYSTEM_PROMPT
     assert "Hinglish" in SYSTEM_PROMPT
-    assert (
-        "Actually interview mein English bolte waqt thoda nervous ho jata hoon."
-        in SYSTEM_PROMPT
-    )
-    assert "That's completely okay. Let's take it step by step." in SYSTEM_PROMPT
-    assert "Do not force language switching." in SYSTEM_PROMPT
+    assert "Hindi" in SYSTEM_PROMPT
 
 
 def test_pipeline_multilingual_config(monkeypatch):

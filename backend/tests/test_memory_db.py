@@ -1,5 +1,5 @@
 """
-Persistence and database unit tests for BolBuddy user memory module (src/db.py).
+Persistence and database unit tests for HealthSathi user memory module (src/db.py).
 """
 
 import os
@@ -14,7 +14,7 @@ from db import (
     get_or_create_user,
     get_user,
     init_db,
-    record_learning_progress,
+    record_health_preferences,
     update_last_interaction,
 )
 
@@ -39,16 +39,15 @@ def test_create_save_close_and_retrieve_user(temp_db):
     """
     Persistence Test:
     1. Create a user
-    2. Save learning facts
-    3. Simulate closing & restarting the connection (fresh get_user query against disk DB)
+    2. Save health facts
+    3. Simulate closing & restarting the connection
     4. Verify data persists accurately
     """
     user_id = "test_user_ramesh_123"
     facts = {
-        "current_level": "beginner",
-        "learning_goal": "job interview",
-        "topics_practiced": ["self introduction", "hobbies"],
-        "recurring_challenges": ["past tense"],
+        "reminder_preference": "Medication reminder",
+        "contact_preference": "phone",
+        "interaction_preferences": ["slow speech"],
     }
 
     created_record = create_or_update_user(
@@ -63,7 +62,7 @@ def test_create_save_close_and_retrieve_user(temp_db):
     assert created_record["user_id"] == user_id
     assert created_record["name"] == "Sakshyam"
     assert created_record["language_preference"] == "English + Hindi"
-    assert created_record["facts"]["current_level"] == "beginner"
+    assert created_record["facts"]["reminder_preference"] == "Medication reminder"
 
     retrieved_user = get_user(user_id=user_id, db_path=temp_db)
 
@@ -71,11 +70,9 @@ def test_create_save_close_and_retrieve_user(temp_db):
     assert retrieved_user["user_id"] == user_id
     assert retrieved_user["name"] == "Sakshyam"
     assert retrieved_user["language_preference"] == "English + Hindi"
-    assert retrieved_user["facts"]["current_level"] == "beginner"
-    assert retrieved_user["facts"]["learning_goal"] == "job interview"
-    assert "self introduction" in retrieved_user["facts"]["topics_practiced"]
-    assert "past tense" in retrieved_user["facts"]["recurring_challenges"]
-    assert retrieved_user["last_interaction"] is not None
+    assert retrieved_user["facts"]["reminder_preference"] == "Medication reminder"
+    assert retrieved_user["facts"]["contact_preference"] == "phone"
+    assert "slow speech" in retrieved_user["facts"]["interaction_preferences"]
 
 
 def test_same_user_id_returns_same_record(temp_db):
@@ -86,7 +83,7 @@ def test_same_user_id_returns_same_record(temp_db):
         user_id=user_id,
         name="Ananya",
         language_preference="Hinglish",
-        facts={"current_level": "intermediate", "learning_goal": "viva"},
+        facts={"reminder_preference": "Appointment check-in"},
         db_path=temp_db,
     )
 
@@ -101,7 +98,7 @@ def test_same_user_id_returns_same_record(temp_db):
         == get_or_create_res["user_id"]
     )
     assert first_fetch["name"] == second_fetch["name"] == "Ananya"
-    assert first_fetch["facts"]["learning_goal"] == "viva"
+    assert first_fetch["facts"]["reminder_preference"] == "Appointment check-in"
 
 
 def test_new_user_id_creates_separate_record(temp_db):
@@ -113,7 +110,7 @@ def test_new_user_id_creates_separate_record(temp_db):
         user_id=user_id_1,
         name="Vikram",
         language_preference="Hindi",
-        facts={"current_level": "beginner", "learning_goal": "everyday conversation"},
+        facts={"reminder_preference": "General health check-in"},
         db_path=temp_db,
     )
 
@@ -121,7 +118,7 @@ def test_new_user_id_creates_separate_record(temp_db):
         user_id=user_id_2,
         name="Siddharth",
         language_preference="English",
-        facts={"current_level": "advanced", "learning_goal": "workplace communication"},
+        facts={"reminder_preference": "Doctor visit preparation"},
         db_path=temp_db,
     )
 
@@ -130,15 +127,12 @@ def test_new_user_id_creates_separate_record(temp_db):
     assert user2["name"] == "Siddharth"
     assert user1["language_preference"] == "Hindi"
     assert user2["language_preference"] == "English"
-    assert user1["facts"]["learning_goal"] == "everyday conversation"
-    assert user2["facts"]["learning_goal"] == "workplace communication"
 
 
-def test_update_existing_user_learning_progress(temp_db):
-    """Verify updating an existing user's learning facts preserves prior information."""
-    user_id = "learner_update_789"
+def test_update_existing_user_health_preferences(temp_db):
+    """Verify updating an existing user's health facts preserves prior information."""
+    user_id = "user_update_789"
 
-    # Initial registration
     get_or_create_user(
         user_id=user_id,
         name="Kavita",
@@ -146,34 +140,26 @@ def test_update_existing_user_learning_progress(temp_db):
         db_path=temp_db,
     )
 
-    # Record learning progress over time
-    record_learning_progress(
+    record_health_preferences(
         user_id=user_id,
-        current_level="intermediate",
-        learning_goal="internship",
-        topics_practiced=["campus life"],
-        recurring_challenges=["sentence formation"],
+        reminder_preference="Daily 8am pill",
+        contact_preference="phone",
+        interaction_preferences=["morning preferred"],
         db_path=temp_db,
     )
 
-    # Further practice session
-    updated = record_learning_progress(
+    updated = record_health_preferences(
         user_id=user_id,
-        topics_practiced=[
-            "job interview",
-            "campus life",
-        ],  # duplicate "campus life" should be ignored
-        recurring_challenges=["pronunciation"],
+        interaction_preferences=["morning preferred", "brief responses"],
         db_path=temp_db,
     )
 
     assert updated["name"] == "Kavita"
-    assert updated["facts"]["current_level"] == "intermediate"
-    assert updated["facts"]["learning_goal"] == "internship"
-    assert updated["facts"]["topics_practiced"] == ["campus life", "job interview"]
-    assert updated["facts"]["recurring_challenges"] == [
-        "sentence formation",
-        "pronunciation",
+    assert updated["facts"]["reminder_preference"] == "Daily 8am pill"
+    assert updated["facts"]["contact_preference"] == "phone"
+    assert updated["facts"]["interaction_preferences"] == [
+        "morning preferred",
+        "brief responses",
     ]
 
 
@@ -184,7 +170,7 @@ def test_last_interaction_timestamp(temp_db):
     user = get_or_create_user(user_id=user_id, name="Rahul", db_path=temp_db)
     t1 = user["last_interaction"]
 
-    time.sleep(0.01)  # small pause to ensure timestamp ticks
+    time.sleep(0.01)
 
     success = update_last_interaction(user_id=user_id, db_path=temp_db)
     assert success is True

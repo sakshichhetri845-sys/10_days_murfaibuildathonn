@@ -1,21 +1,21 @@
-# Day 3 — Voice UI & Web Interface (#VoiceForBharat Challenge)
+# Day 3 — Voice UI & Web Interface (Health Access Track)
 
 ## Progress & Milestones Achieved
-- [x] Developed a modern web interface for **BolBuddy** using Next.js 15, React 19, TypeScript, and Tailwind CSS.
-- [x] Integrated an animated orb visualizer (`bolbuddy-session-view.tsx`) reflecting speaking and listening states in real time.
-- [x] Created a welcome landing view (`welcome-view.tsx`) with 1-click session launch.
-- [x] Added an interactive Live Conversation Transcript view for visual speech review.
-- [x] Added session control buttons (microphone mute, end call, and memory drawer toggle).
+- [x] Developed a modern healthcare-oriented web interface for **HealthSathi** using Next.js 15, React 19, TypeScript, and Tailwind CSS.
+- [x] Integrated an animated health orb visualizer ([healthsathi-session-view.tsx](file:///c:/Users/livel/Downloads/murffff/sakshi/frontend/components/app/healthsathi-session-view.tsx)) reflecting voice states in real time: Ready, Connecting, Listening, Thinking, Speaking.
+- [x] Created a health landing view ([welcome-view.tsx](file:///c:/Users/livel/Downloads/murffff/sakshi/frontend/components/app/welcome-view.tsx)) featuring Health Quick Action cards (Talk to HealthSathi, Medication Reminder, Doctor Visit Prep, Human Support).
+- [x] Added a non-medical safety disclaimer banner prominently at the top of the interface.
+- [x] Added drawers for Health Reminders, Memory & Privacy, and Human Support.
 
 ---
 
 ## Overview
-Day 3 delivered a full web application user experience for **BolBuddy**. The interface provides immediate visual feedback through responsive audio visualizers, allowing learners to see when BolBuddy is listening or speaking.
+Day 3 delivered a clean, voice-first health companion user experience for **HealthSathi**. The interface uses healthcare teal branding (`#F0FAFA`, `#14B8A6`) and avoids generic overloaded dashboards.
 
 ---
 
 ## Objective
-Build a web user interface with LiveKit Agents UI components, dynamic audio visualization, microphone controls, and transcript streaming as part of Day 3 of the #VoiceForBharat challenge.
+Build a voice-first health web interface with LiveKit UI components, state visualization, microphone controls, emergency warnings, and transcript streaming as part of Day 3 of the #VoiceForBharat Health Access challenge.
 
 ---
 
@@ -26,31 +26,26 @@ User Browser (Next.js Frontend)
       ↓ (Token API Request)
 Token Route (/api/token/route.ts) → LiveKit Cloud Token
       ↓ (WebRTC Room Join)
-BolBuddy Session View (Animated Orb + Session Controls + Live Transcript)
+HealthSathi Session View (Teal Orb + Session Controls + Live Transcript + Emergency Disclaimer)
 ```
 
 - **Main Page**: `frontend/app/page.tsx`
-- **Session View**: `frontend/components/app/bolbuddy-session-view.tsx`
+- **Session View**: `frontend/components/app/healthsathi-session-view.tsx`
 - **Welcome View**: `frontend/components/app/welcome-view.tsx`
+- **Reminders Section**: `frontend/components/app/health-reminders-section.tsx`
+- **Help Drawer**: `frontend/components/app/escalations-drawer.tsx`
+- **Memory Drawer**: `frontend/components/app/memory-panel.tsx`
 - **Token Route**: `frontend/app/api/token/route.ts`
 
 ---
 
 ## User Experience
-1. Learner opens the web app at `http://localhost:3000`.
-2. Learner clicks **Start Practice Session**.
-3. The orb visualizer animates dynamically as the user speaks and BolBuddy responds.
-4. Learner can toggle the **Live Conversation Transcript** to review spoken words visually.
-
----
-
-## Tech Stack
-- **Framework**: Next.js 15 / React 19 / TypeScript
-- **Styling**: Tailwind CSS
-- **Voice UI**: LiveKit Components React (`@livekit/components-react`)
-- **Animations**: Motion / Lucide Icons
+1. User opens `http://localhost:3000`.
+2. User sees clear Health Quick Actions and non-medical safety banner.
+3. User clicks **Start Voice Consultation**.
+4. The teal orb visualizer smoothly animates through Ready, Connecting, Listening, Thinking, and Speaking states.
 
 ---
 
 ## Status
-**Day 3 Completed.**
+**Day 3 Completed — HealthSathi Web Interface Active.**
