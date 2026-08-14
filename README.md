@@ -61,11 +61,11 @@ flowchart TD
 
 ---
 
-## 🗓 8 Days Progress (#VoiceForBharat Health Access Challenge)
+## 🗓 9 Days Progress (#VoiceForBharat Health Access Challenge)
 
 | Day | Focus Area | Key Deliverables & Implementation |
 | :---: | :--- | :--- |
-| **[Day 1](./day_1/README.md)** | Basic Voice Agent Pipeline | Real-time duplex audio streaming using LiveKit Agents, Deepgram Nova-3 STT, Murf Falcon TTS (Anisha voice), and initial HealthSathi identity. |
+| **[Day 1](./day_1/README.md)** | Basic Voice Agent Pipeline | Real-time duplex audio streaming using LiveKit Agents, Deepgram Nova-3 STT, Murf Falcon TTS (Samar & Pooja voices), and initial HealthSathi identity. |
 | **[Day 2](./day_2/README.md)** | Personality & Safety Guardrails | HealthSathi companion persona, non-diagnostic safety guardrails, 1-question-at-a-time flow, and Hinglish support. |
 | **[Day 3](./day_3/README.md)** | Voice UI & Web Interface | Healthcare teal visual theme (`#F0FAFA`, `#14B8A6`), quick action cards, non-medical disclaimer banner, and state orb visualizer (Ready, Connecting, Listening, Thinking, Speaking). |
 | **[Day 4](./day_4/README.md)** | Persistent Memory & Privacy | SQLite user memory (`healthsathi_memory.db`), consent-based saving, verbal confirmation before memory deletion, and non-sensitive preference storage. |
@@ -73,20 +73,23 @@ flowchart TD
 | **[Day 6](./day_6/README.md)** | Outbound Calls & Reminders | Scheduled health reminder calls via LiveKit SIP trunk, clear 3-part call opening, immediate stop request handling, and call outcome logging. |
 | **[Day 7](./day_7/README.md)** | Human Escalation & Discord Channel | Emergency red-flag and explicit support request triggers, 7-step consent protocol, PII scrubbing (`_redact_pii`), reference ID generation (`ESC-XXXX`), and Discord webhook integration. |
 | **[Day 8](./day_8/README.md)** | Call Analytics Dashboard & Outcomes | Call Analytics Drawer UI, SQLite metrics persistence (`call_analytics`), outcome classification (`GENERAL_GUIDANCE`, `TRIAGE_COMPLETED`, `FACILITY_FOUND`, `HUMAN_ESCALATION`, `INCOMPLETE`, `TECHNICAL_ERROR`), KPI summary cards, time filtering, and Zero-PII safeguard. |
+| **[Day 9](./day_9/README.md)** | Specialist Multi-Agent Handoff | Multi-agent collaborative system (`HealthSathi` ↔ `ClinicSathi`), distinct Murf Falcon multilingual voices (`Samar` male & `Pooja` female), permission-first handoff, instant switch greeting, and context continuity. |
 
 ---
 
-## 📊 Day 8 Feature Spotlight: Call Analytics Dashboard & Outcome Tracking
+## 🤝 Day 9 Feature Spotlight: Specialist Multi-Agent Handoff & Dual-Voice Personas
 
-HealthSathi provides comprehensive visibility into health access voice sessions with privacy-by-design monitoring:
+HealthSathi expands into a collaborative multi-agent health guidance ecosystem:
 
-### 1. Analytics & Outcome Tracking Schema
-- Stores call duration, channel (`Browser` vs `SIP`), outcome status (`Successful` vs `Failed`), and specific resolution type (`GENERAL_GUIDANCE`, `TRIAGE_COMPLETED`, `FACILITY_FOUND`, `HUMAN_ESCALATION`, `INCOMPLETE`, `TECHNICAL_ERROR`).
-- **Zero-Medical-PII Policy**: No medical symptoms, diagnoses, prescriptions, transcripts, or personal identifying info are ever stored in metrics.
+### 1. Dual Murf Falcon Multilingual Personas (`en-IN`)
+- **HealthSathi (General Companion)**: Murf Falcon **`Samar`** voice for triage, general wellness, reminders, and escalation.
+- **ClinicSathi (Specialist)**: Murf Falcon **`Pooja`** voice for finding PHCs, hospitals, and doctor appointment preparation.
 
-### 2. Monitoring Dashboard UI
-- Interactive drawer featuring real-time KPI summary cards (Total Calls, Successful Calls, Failed Calls, Success Rate %).
-- Visual outcome breakdown progress bars, period filtering (`Today`, `Last 7 Days`, `All Time`), live refresh, and recent call log.
+### 2. Permission-First Handoff & Zero-Latency Greeting
+- Explicit consent required before transferring from HealthSathi to ClinicSathi.
+- Zero-latency proactive spoken greeting upon switch without requiring the user to speak first.
+- Deep chat context continuity ensuring symptoms and history never need to be repeated.
+- Seamless handback protocol returning to HealthSathi when general queries resume.
 
 ---
 
